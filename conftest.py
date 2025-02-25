@@ -5,7 +5,10 @@ import pytest
 import asyncio
 
 # Fix the ROOT_DIR to the correct location
-ROOT_DIR = Path(__file__).resolve().parent  # This points to /home/runner/work/opn-intelligence/opn-intelligence
+ROOT_DIR = Path(__file__).resolve().parent  # Adjust as needed
+
+print(f"Resolved ROOT_DIR: {ROOT_DIR}")
+print(f"Checking path: {ROOT_DIR / 'app_services_parent'}")
 
 def pytest_sessionstart(session):
     """
@@ -13,7 +16,7 @@ def pytest_sessionstart(session):
     and entering the run test loop.
     """
     app_services_path = ROOT_DIR / 'app_services_parent'
-    
+
     if not app_services_path.exists():
         raise FileNotFoundError(f"Expected directory not found: {app_services_path}")
 
