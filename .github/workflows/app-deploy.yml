@@ -89,18 +89,18 @@ jobs:
         working-directory: /home/runner/work/opn-intelligence
 
       - name: List available tasks
-        working-directory: ./opn-intelligence
+        working-directory: .
         run: pytest --collect-only
 
         #It will basically generates a xml and a html report by executing all the test cases   using pytest
       - name: Run tests and generate coverage
-        working-directory: ./opn-intelligence
+        working-directory: .
         run: |
           pytest --cov=app --cov-report=xml --cov-report=html --junitxml=test-results/junit-report.xml
 
       #it is used to show the coverage summary
       - name: Generating the coverage report
-        working-directory: ./opn-intelligence
+        working-directory: .
         run: |
           coverage report -m     
           coverage xml -o coverage.xml 
