@@ -9,9 +9,6 @@ on:
       parent_module:
         description: "Parent module to deploy"
         required: true
-        type: choice
-        options:
-          - app-services-parent
         default: "app-services-parent"
       service:
         description: "Service to deploy"
@@ -84,7 +81,7 @@ jobs:
           pip install -r requirements/requirements-dev.txt
 
       - name: List available tasks
-        #working-directory: ./opn-intelligence
+        working-directory: ./   #opn-intelligence
         run: pytest --collect-only
 
         #It will basically generates a xml and a html report by executing all the test cases   using pytest
