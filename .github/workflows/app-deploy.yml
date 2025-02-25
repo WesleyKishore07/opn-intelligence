@@ -136,6 +136,11 @@ jobs:
         id: report
         run: |
           {
+            TARGET_DIR="$GITHUB_WORKSPACE/opn-intelligence/app_services_parent"
+            if [ ! -d "$TARGET_DIR" ]; then
+                echo "❌ Error: Directory $TARGET_DIR not found!"
+                exit 1  # Stop execution if the directory is missing
+            fi
             echo "# Pull Request Quality Check Summary"  
             echo "Build: #${GITHUB_RUN_NUMBER} - ${GITHUB_SHA::7}"  
             echo ""  
@@ -291,7 +296,7 @@ jobs:
                 echo "report_content<<EOF"  
                 cat report.md  
                 echo "EOF"  
-            } >> $GITHUB_OUTPUT  
+            } >>   $GITHUB_OUTPUT  
 
       - name: Prepare and Upload Reports
         if: always()
