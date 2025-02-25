@@ -40,7 +40,7 @@ The platform is built using a microservices architecture with the following key 
 ## Project Structure
 
 ```
-app-services-parent/
+app_services_parent/
 ├── infinity/                        # Infinity service
 │   ├── app/
 │   │   ├── api/
@@ -181,7 +181,7 @@ service/
 
 ### Key Directories
 - **app/**: Monolithic application code and entry point
-- **app-services-parent/**: Individual microservices, each self-contained
+- **app_services_parent/**: Individual microservices, each self-contained
 - **agents/**: Shared AI functionality and service-specific agents
 - **common/**: Shared utilities and configurations
 - **docker/**: Container configurations for both deployment modes
@@ -259,34 +259,34 @@ Each service runs independently and can be deployed on different ports.
 ```bash
 # Deploy individual services with environments
 # Shipment Service (Port 8001)
-cd app-services-parent/shipment
+cd app_services_parent/shipment
 pip install -r requirements/requirements.txt
 DEPLOYMENT_MODE=microservice uvicorn app.main:app --reload --port 8001 --env-file env/.env.dev  # Development
 DEPLOYMENT_MODE=microservice uvicorn app.main:app --reload --port 8001 --env-file env/.env.stage  # Staging
 DEPLOYMENT_MODE=microservice uvicorn app.main:app --reload --port 8001 --env-file env/.env.prod  # Production
 
 # Onboarding Service (Port 8002)
-cd app-services-parent/onboarding
+cd app_services_parent/onboarding
 pip install -r requirements/requirements.txt
 DEPLOYMENT_MODE=microservice uvicorn app.main:app --reload --port 8002 --env-file env/.env.dev
 
 # Settlement Service (Port 8003)
-cd app-services-parent/settlement
+cd app_services_parent/settlement
 pip install -r requirements/requirements.txt
 DEPLOYMENT_MODE=microservice uvicorn app.main:app --reload --port 8003 --env-file env/.env.dev
 
 # Operations Service (Port 8004)
-cd app-services-parent/operations
+cd app_services_parent/operations
 pip install -r requirements/requirements.txt
 DEPLOYMENT_MODE=microservice uvicorn app.main:app --reload --port 8004 --env-file env/.env.dev
 
 # Pre-onboarding Service (Port 8005)
-cd app-services-parent/pre_onboarding
+cd app_services_parent/pre_onboarding
 pip install -r requirements/requirements.txt
 DEPLOYMENT_MODE=microservice uvicorn app.main:app --reload --port 8005 --env-file env/.env.dev
 
 # Infinity Service (Port 8006)
-cd app-services-parent/infinity
+cd app_services_parent/infinity
 pip install -r requirements/requirements.txt
 DEPLOYMENT_MODE=microservice uvicorn app.main:app --reload --port 8006 --env-file env/.env.dev
 
@@ -335,8 +335,8 @@ pytest --cov=app
 pytest --cov=app --cov-report=html
 
 # Run specific service tests from monolith
-pytest app-services-parent/shipment/tests/
-pytest app-services-parent/operations/tests/
+pytest app_services_parent/shipment/tests/
+pytest app_services_parent/operations/tests/
 
 # Run environment-specific tests
 pytest --env-file env/.env.dev
@@ -346,7 +346,7 @@ pytest --env-file env/.env.stage
 ### Microservice Tests
 ```bash
 # Navigate to specific service
-cd app-services-parent/shipment
+cd app_services_parent/shipment
 
 # Run all service tests
 pytest

@@ -1,4 +1,4 @@
-# app-services-parent/pre_onboarding/app/main.py
+# app_services_parent/pre_onboarding/app/main.py
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from common.config.base_config import get_service_port
