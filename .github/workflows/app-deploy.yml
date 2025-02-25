@@ -16,14 +16,14 @@ on:
       service:
         description: "Service to deploy"
         required: true
-        type: choice
-        options:
-          - shipment
-          # - infinity
-          # - onboarding
-          # - operations
-          # - pre_onboarding
-          # - settlement      
+        # type: choice
+        # options:
+        #   - shipment
+        #   # - infinity
+        #   # - onboarding
+        #   # - operations
+        #   # - pre_onboarding
+        #   # - settlement      
         default: "shipment"
 permissions:
   id-token: write
