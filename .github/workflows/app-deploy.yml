@@ -90,8 +90,8 @@ jobs:
         
       - name: Debug directory structure
         run: |
-          ls -l /home/runner/work/opn-intelligence/ || echo "Directory not found"
-          ls -l /home/runner/work/opn-intelligence/app_services_parent || echo "app_services_parent directory not found"
+          ls -l /home/runner/work/opn-intelligence/opn-intelligence || echo "Directory not found"
+          ls -l /home/runner/work/opn-intelligence/opn-intelligence/app_services_parent || echo "app_services_parent directory not found"
 
 
       - name: List available tasks
