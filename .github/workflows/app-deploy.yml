@@ -175,7 +175,7 @@ jobs:
               coverage_file=$(find "$(dirname "$module_path")/coverage.xml"
               if[ -f "$coverage_file" ]; then
                 coverage=$(grep -oP '(?<=Line-rate=")[^"]+' "$coverage_file" | awk '{print $1*100}' | head -1)
-                coverage=${coverage_value:-0}
+                coverage=${coverage:-0}
               fi
 
               flake8_file="$(dirname "$module_path")/flake8_report.txt" #Syntax and styles issues
