@@ -53,12 +53,15 @@ jobs:
           
       - name: Prod Deployment Check
         if: ${{ env.DEPLOY_ENV == 'prod' || startsWith(env.DEPLOY_ENV, 'prod') }}
-        run: "CODEOWNERS=$(grep -v '^#' .github/CODEOWNERS | awk '{print $NF}' | sort | uniq )
-          if ! echo \"$CODEOWNERS\" | grep -w \"${{ github.actor }}\"; then
-            echo \"❌ You are not authorised to do the deployment in the production\" 
+        run: |
+          CODEOWNERS=$(grep -v '^#' .github/CODEOWNERS | awk '{print $NF}' | sort | uniq)
+          
+          if ! echo "$CODEOWNERS" | grep -w "${{ github.actor }}"; then
+            echo "❌ You are not authorised to do the deployment in the production"
             exit 1
           else
-            echo \"✅ Authorised to do the deployment in the production - ${{github.actor}}\"\nfi\n"
+            echo "✅ Authorised to do the deployment in the production - ${{ github.actor }}"
+          fi
 
         #Setting up the python environment
       - name: Set up Python
@@ -86,7 +89,7 @@ jobs:
         working-directory: /home/runner/work/opn-intelligence
 
       - name: List available tasks
-        working-directory: ./   #opn-intelligence
+        working-directory: ./opn-intelligence
         run: pytest --collect-only
 
         #It will basically generates a xml and a html report by executing all the test cases   using pytest
