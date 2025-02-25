@@ -179,7 +179,7 @@ jobs:
               coverage_file=$(find "$(dirname "$module_path")" -name "coverage.xml" 2>main/null)
               if [ -f "$coverage_file" ]; then
                 coverage=$(grep -oP '(?<=Line-rate=")[^"]+' "$coverage_file" | awk '{print $1*100}' | head -1)
-                coverage=${coverage:-0}
+                coverage=${coverage_value:-0}
               fi
 
               flake8_file="$(dirname "$module_path")/flake8_report.txt" #Syntax and styles issues
@@ -225,7 +225,7 @@ jobs:
               [ "$((flake8_count + pylint_count + bandit_count))" -gt 0 ] && quality_status="❌"
 
               overall_status="✅"
-              [[ "$test_status" == "❌" || "$coverage_status" == "❌" || "$quality_status" == "❌" ]] && overall_status="❌"
+              [[ "$test_status"== "❌" || "$coverage_status" == "❌" || "$quality_status" == "❌" ]] && overall_status="❌"
 
               echo "| $module_name | $test_passed/$test_results $test_status | ${coverage}% $coverage_status | Flake8:$flake8_count, Pylint:$pylint_count, Bandit:$bandit_count $quality_status | $overall_status | [Reports]($artifacts_base) |"
 
@@ -289,161 +289,148 @@ jobs:
           rm -rf "$UPLOAD_DIR"
           mkdir -p "$UPLOAD_DIR"
 
+          # Ensure parent directory exists before proceeding
+          PARENT_DIR="./opn-intelligence/app_services_parent"
+
+          if [ ! -d "$PARENT_DIR" ]; then
+              echo "Error: Directory $PARENT_DIR not found!"
+              exit 1  # Exit to prevent further errors
+          fi
+
           # Find parent modules
-          parent_modules=$(find ./app_services_parent -maxdepth 1 -type d)
+          parent_modules=$(find "$PARENT_DIR" -maxdepth 1 -type d)
 
           # Create main index template
           cat > index_template.html << 'EOL'
           <!DOCTYPE html>
           <html lang="en">
-              <head>
-                  <meta charset="UTF-8">
-                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                  <title>Quality Reports</title>
-                  <style>
-                      body {
-                          font-family: Arial, sans-serif;
-                          margin: 20px;
-                          line-height: 1.6;
-                      }
-                      h1 {
-                          color: #333;
-                          border-bottom: 2px solid #eee;
-                          padding-bottom: 10px;
-                      }
-                      .report-link {
-                          display: block;
-                          margin: 10px 0;
-                          padding: 15px;
-                          background: #f5f5f5;
-                          border-radius: 5px;
-                          text-decoration: none;
-                          color: #333;
-                          transition: background-color 0.2s ease;
-                      }
-                      .report-link:hover {
-                          background: #e0e0e0;
-                      }
-                      .container {
-                          max-width: 1200px;
-                          margin: 0 auto;
-                          padding: 20px;
-                      }
-                  </style>
-              </head>
-              <body>
-                  <div class="container">
-                      <h1>MODULE_TITLE</h1>
-                      REPORT_LINKS
-                  </div>
-              </body>
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Quality Reports</title>
+              <style>
+                  body {
+                      font-family: Arial, sans-serif;
+                      margin: 20px;
+                      line-height: 1.6;
+                  }
+                  h1 {
+                      color: #333;
+                      border-bottom: 2px solid #eee;
+                      padding-bottom: 10px;
+                  }
+                  .report-link {
+                      display: block;
+                      margin: 10px 0;
+                      padding: 15px;
+                      background: #f5f5f5;
+                      border-radius: 5px;
+                      text-decoration: none;
+                      color: #333;
+                      transition: background-color 0.2s ease;
+                  }
+                  .report-link:hover {
+                      background: #e0e0e0;
+                  }
+                  .container {
+                      max-width: 1200px;
+                      margin: 0 auto;
+                      padding: 20px;
+                  }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>MODULE_TITLE</h1>
+                  REPORT_LINKS
+              </div>
+          </body>
           </html>
           EOL
 
           process_module() {
-          local module_dir="$1"
-          local module_name=$(basename "$module_dir")
+              local module_dir="$1"
+              local module_name=$(basename "$module_dir")
 
-          echo "Processing module: $module_name"
-          local module_reports="$UPLOAD_DIR/$module_name"
-          mkdir -p "$module_reports"
+              echo "Processing module: $module_name"
+              local module_reports="$UPLOAD_DIR/$module_name"
+              mkdir -p "$module_reports"
 
-          # Copy test results (pytest JUnit XML format)
-          if [ -f "$module_dir/test-results/results.xml" ]; then
-              echo "Found test results for $module_name"
-              mkdir -p "$module_reports/tests"
-              cp "$module_dir/test-results/results.xml" "$module_reports/tests/" || true
-          fi
+              # Copy test results (pytest JUnit XML format)
+              if [ -f "$module_dir/test-results/results.xml" ]; then
+                  mkdir -p "$module_reports/tests"
+                  cp "$module_dir/test-results/results.xml" "$module_reports/tests/" || true
+              fi
 
-          # Copy coverage report (HTML)
-          if [ -d "$module_dir/test-results/coverage" ]; then
-              echo "Found coverage report for $module_name"
-              mkdir -p "$module_reports/coverage"
-              cp -r "$module_dir/test-results/coverage/"* "$module_reports/coverage/" || true
-          fi
+              # Copy coverage report (HTML)
+              if [ -d "$module_dir/test-results/coverage" ]; then
+                  mkdir -p "$module_reports/coverage"
+                  cp -r "$module_dir/test-results/coverage/"* "$module_reports/coverage/" || true
+              fi
 
-          # Copy quality reports
-          mkdir -p "$module_reports/quality"
+              # Copy quality reports
+              mkdir -p "$module_reports/quality"
 
-          # Flake8 (Style issues)
-          if [ -f "$module_dir/test-results/flake8-report.txt" ]; then
-              echo "Found flake8 report for $module_name"
-              mkdir -p "$module_reports/quality/flake8"
-              cp "$module_dir/test-results/flake8-report.txt" "$module_reports/quality/flake8/" || true
-          fi
+              # Flake8 (Style issues)
+              if [ -f "$module_dir/test-results/flake8-report.txt" ]; then
+                  mkdir -p "$module_reports/quality/flake8"
+                  cp "$module_dir/test-results/flake8-report.txt" "$module_reports/quality/flake8/" || true
+              fi
 
-          # Pylint (Static analysis)
-          if [ -f "$module_dir/test-results/pylint-report.txt" ]; then
-              echo "Found pylint report for $module_name"
-              mkdir -p "$module_reports/quality/pylint"
-              cp "$module_dir/test-results/pylint-report.txt" "$module_reports/quality/pylint/" || true
-          fi
+              # Pylint (Static analysis)
+              if [ -f "$module_dir/test-results/pylint-report.txt" ]; then
+                  mkdir -p "$module_reports/quality/pylint"
+                  cp "$module_dir/test-results/pylint-report.txt" "$module_reports/quality/pylint/" || true
+              fi
 
-          # Bandit (Security analysis)
-          if [ -f "$module_dir/test-results/bandit-report.txt" ]; then
-              echo "Found bandit report for $module_name"
-              mkdir -p "$module_reports/quality/bandit"
-              cp "$module_dir/test-results/bandit-report.txt" "$module_reports/quality/bandit/" || true
-          fi
+              # Bandit (Security analysis)
+              if [ -f "$module_dir/test-results/bandit-report.txt" ]; then
+                  mkdir -p "$module_reports/quality/bandit"
+                  cp "$module_dir/test-results/bandit-report.txt" "$module_reports/quality/bandit/" || true
+              fi
 
+              # Create index.html if we have reports
+              if [ "$(find "$module_reports" -type f | wc -l)" -gt 0 ]; then
+                  report_links=""
+                  [ -f "$module_reports/tests/results.xml" ] && report_links+="                      <a class=\"report-link\" href=\"tests/results.xml\">Test Report (JUnit)</a>\\n"
+                  [ -d "$module_reports/coverage" ] && report_links+="                      <a class=\"report-link\" href=\"coverage/index.html\">Coverage Report</a>\\n"
+                  [ -f "$module_reports/quality/flake8/flake8-report.txt" ] && report_links+="                      <a class=\"report-link\" href=\"quality/flake8/flake8-report.txt\">Flake8 Report</a>\\n"
+                  [ -f "$module_reports/quality/pylint/pylint-report.txt" ] && report_links+="                      <a class=\"report-link\" href=\"quality/pylint/pylint-report.txt\">Pylint Report</a>\\n"
+                  [ -f "$module_reports/quality/bandit/bandit-report.txt" ] && report_links+="                      <a class=\"report-link\" href=\"quality/bandit/bandit-report.txt\">Bandit Report</a>\\n"
 
-           # Create index.html if we have reports
-          if [ -n "$(find "$module_reports" -type f 2>/main/null)" ]; then
-              # Generate report links
-              report_links=""
-              [ -f "$module_reports/tests/results.xml" ] && report_links+="                      <a class=\"report-link\" href=\"tests/results.xml\">Test Report (JUnit)</a>\\n"
-              [ -d "$module_reports/coverage" ] && report_links+="                      <a class=\"report-link\" href=\"coverage/index.html\">Coverage Report</a>\\n"
-              [ -f "$module_reports/quality/flake8/flake8-report.txt" ] && report_links+="                      <a class=\"report-link\" href=\"quality/flake8/flake8-report.txt\">Flake8 Report</a>\\n"
-              [ -f "$module_reports/quality/pylint/pylint-report.txt" ] && report_links+="                      <a class=\"report-link\" href=\"quality/pylint/pylint-report.txt\">Pylint Report</a>\\n"
-              [ -f "$module_reports/quality/bandit/bandit-report.txt" ] && report_links+="                      <a class=\"report-link\" href=\"quality/bandit/bandit-report.txt\">Bandit Report</a>\\n"
+                  # Create index.html from template
+                  sed -e "s|MODULE_TITLE|Quality Reports - $module_name|" \
+                      -e "s|REPORT_LINKS|$report_links|" \
+                      index_template.html > "$module_reports/index.html"
+              else
+                  rm -rf "$module_reports"
+              fi
+          }
 
-              # Create index.html from template
-              sed -e "s|MODULE_TITLE|Quality Reports - $module_name|" \
-                  -e "s|REPORT_LINKS|$report_links|" \
-                  index_template.html > "$module_reports/index.html"
-          else
-              rm -rf "$module_reports"
-          fi
-
-
-           # Process modules inside python-services
-          find ./app_services_parent -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
-              dir_name=$(basename "$dir")
-              if [[ "$dir_name" != "venv" && "$dir_name" != "__pycache__" && "$dir_name" != "logs" && \
-                    "$dir_name" != "config" && "$dir_name" != "docs" ]]; then
-                  if [ -d "$dir/reports" ]; then
-                      process_module "$dir"
-                  fi
+          # Process modules inside app_services_parent
+          find "$PARENT_DIR" -mindepth 1 -maxdepth 1 -type d | while read -r module_dir; do
+              if [ -d "$module_dir/reports" ]; then
+                  process_module "$module_dir"
               fi
           done
-
-          # Process parent modules
-          echo "$parent_modules" | while read -r parent_dir; do
-              if [ -n "$parent_dir" ]; then
-                  find "$parent_dir" -mindepth 1 -maxdepth 1 -type d | while read -r module_dir; do
-                      if [ -d "$module_dir/reports" ]; then
-                          process_module "$module_dir"
-                      fi
-                  done
-              fi
-          done
-
 
           # Create main index.html
-          if [ -n "$(find "$UPLOAD_DIR" -mindepth 1 -type d 2>/main/null)" ]; then
-            module_links=""
-            find "$UPLOAD_DIR" -mindepth 1 -maxdepth 1 -type d | sort | while read -r module_dir; do
-              module_name=$(basename "$module_dir")
-              module_links+="                      <a class=\"report-link\" href=\"$module_name/index.html\">$module_name</a>\\n"
-            done
+          if [ "$(find "$UPLOAD_DIR" -mindepth 1 -type d | wc -l)" -gt 0 ]; then
+              module_links=""
+              find "$UPLOAD_DIR" -mindepth 1 -maxdepth 1 -type d | sort | while read -r module_dir; do
+                  module_name=$(basename "$module_dir")
+                  module_links+="                      <a class=\"report-link\" href=\"$module_name/index.html\">$module_name</a>\\n"
+              done
 
-            sed -e "s|MODULE_TITLE|Quality Reports|" \
-                -e "s|REPORT_LINKS|$module_links|" \
-                index_template.html > "$UPLOAD_DIR/index.html"
+              sed -e "s|MODULE_TITLE|Quality Reports|" \
+                  -e "s|REPORT_LINKS|$module_links|" \
+                  index_template.html > "$UPLOAD_DIR/index.html"
           fi
 
           echo "Files to be uploaded:"
           find "$UPLOAD_DIR" -type f | wc -l
+
+
 
           - name: Upload Quality Reports
           if: always()
