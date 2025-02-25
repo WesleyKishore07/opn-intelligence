@@ -5,7 +5,7 @@ on:
       environment:
         description: "Environment to deploy to"
         required: true
-        default: "dev"
+        default: "main"
       parent_module:
         description: "Parent module to deploy"
         required: true
@@ -48,7 +48,7 @@ jobs:
           if [ -n "${{ github.event_name }}" ="workflow_dispatch" ]; then
             echo "DEPLOY_ENV=${{ github.event.inputs.environment}}" >> $GITHUB_ENV
           else
-            echo "DEPLOY_ENV=dev" >> $GITHUB_ENV
+            echo "DEPLOY_ENV=main" >> $GITHUB_ENV
           fi
           
       - name: Prod Deployment Check
@@ -157,7 +157,7 @@ jobs:
                   test_results=$((test_results + ${tests:-0}))
                   test_failures=$((test_failures + ${failures:-0} + ${errors:-0}))
                 fi              
-              done < <(find "$(dirname "$module_path")" -name "TEST_*.xml" 2>/dev/null)
+              done < <(find "$(dirname "$module_path")" -name "TEST_*.xml" 2>/main/null)
 
               test_passed=$((test_results - test_failures))
 
@@ -375,7 +375,7 @@ jobs:
 
 
            # Create index.html if we have reports
-          if [ -n "$(find "$module_reports" -type f 2>/dev/null)" ]; then
+          if [ -n "$(find "$module_reports" -type f 2>/main/null)" ]; then
               # Generate report links
               report_links=""
               [ -f "$module_reports/tests/results.xml" ] && report_links+="                      <a class=\"report-link\" href=\"tests/results.xml\">Test Report (JUnit)</a>\\n"
@@ -417,7 +417,7 @@ jobs:
 
 
           # Create main index.html
-          if [ -n "$(find "$UPLOAD_DIR" -mindepth 1 -type d 2>/dev/null)" ]; then
+          if [ -n "$(find "$UPLOAD_DIR" -mindepth 1 -type d 2>/main/null)" ]; then
             module_links=""
             find "$UPLOAD_DIR" -mindepth 1 -maxdepth 1 -type d | sort | while read -r module_dir; do
               module_name=$(basename "$module_dir")
@@ -473,7 +473,7 @@ jobs:
               });
 
               opn-apps-service-container:
-              name: Deploy to opn ${{ github.event.inputs.service }} App ${{ github.event.inputs.environment || 'dev' }}
+              name: Deploy to opn ${{ github.event.inputs.service }} App ${{ github.event.inputs.environment || 'main' }}
               runs-on: ubuntu-latest
               if: github.event_name == 'push'
 
@@ -486,7 +486,7 @@ jobs:
                       echo "SERVICE=${{ github.event.inputs.service }}" >> $GITHUB_ENV
                       echo "DEPLOY_ENV=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
                     else
-                      echo "DEPLOY_ENV=dev" >> $GITHUB_ENV
+                      echo "DEPLOY_ENV=main" >> $GITHUB_ENV
                     fi
 
       - name: Checkout Code
@@ -524,7 +524,7 @@ jobs:
 
       - name: Build Docker Image
         run: |
-          if [ "${{ github.event.inputs.environment }}" == "dev" ]; then
+          if [ "${{ github.event.inputs.environment }}" == "main" ]; then
             export PASSPHRASE=${{ secrets.DECRYPTION_PASSWORD }}
             echo "PASSPHRASE SET"
             chmod +x ./opn-core-services-parent/$PARENT_MODULE/$SERVICE/entrypoint.sh
@@ -552,8 +552,8 @@ jobs:
           REPOSITORY: container-registry
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          if [ "${{ env.DEPLOY_ENV }}" == "dev" ]; then
-            echo "Using dev Dockerfile and entrypoint.sh"
+          if [ "${{ env.DEPLOY_ENV }}" == "main" ]; then
+            echo "Using main Dockerfile and entrypoint.sh"
             export DEPLOY_ENV=$DEPLOY_ENV
             export PASSPHRASE=${{ secrets.DECRYPTION_PASSWORD }}
             sh docker/entrypoint.sh
@@ -586,7 +586,7 @@ jobs:
       - name: Authenticate with AWS EKS
         run: |
           case "${{ env.DEPLOY_ENV }}" in
-            dev)
+            main)
               EKS_CLUSTER_NAME="${{ vars.DEV_CLUSTER }}"
               ;;
             prod)
