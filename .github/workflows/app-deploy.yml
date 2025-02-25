@@ -443,7 +443,7 @@ jobs:
           fi
 
           echo "Files to be uploaded:"
-          find "$UPLOAD_DIR" -type f | wc -1
+          find "$UPLOAD_DIR" -type f | wc -l
 
           - name: Upload Quality Reports
           if: always()
