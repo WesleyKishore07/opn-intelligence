@@ -1,5 +1,8 @@
 name: Build and deploy service for opn -intelligence
 on:
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       environment:
@@ -119,7 +122,7 @@ jobs:
           files: "app_services_parent/shipment/test-results/**/*.xml"
           report_individual_runs: true
           check_name: "Test Results"
-          
+      
       - name: Debug test results path
         run: ls -lah app_services_parent/shipment/test-results/
 
@@ -159,9 +162,10 @@ jobs:
 
               while IFS=read -r test_file; do
                 if [ -f "$test_file" ]; then
-                  tests=$(grep -oP 'tests="K[^"]+' "$test_file" | echo "0")
-                  failures=$(grep -oP 'failures="K[^"]+' "$test_file" | echo "0")
-                  errors=$(grep -oP 'error="K[^"]+' "$test_file" | echo "0")
+                  tests=$(grep -oP 'tests="[^"]+' "$test_file" | awk -F'"' '{print $2}' || echo "0")
+                  failures=$(grep -oP 'failures="[^"]+' "$test_file" | awk -F'"' '{print $2}' || echo "0")
+                  errors=$(grep -oP 'errors="[^"]+' "$test_file" | awk -F'"' '{print $2}' || echo "0")
+
 
                   test_results=$((test_results + ${tests:-0}))
                   test_failures=$((test_failures + ${failures:-0} + ${errors:-0}))
@@ -172,10 +176,10 @@ jobs:
 
               #Coverage
               coverage=0
-              coverage_file=$(find "$(dirname "$module_path")/coverage.xml"
-              if[ -f "$coverage_file" ]; then
+              coverage_file=$(find "$(dirname "$module_path")" -name "coverage.xml" 2>main/null)
+              if [ -f "$coverage_file" ]; then
                 coverage=$(grep -oP '(?<=Line-rate=")[^"]+' "$coverage_file" | awk '{print $1*100}' | head -1)
-                coverage=${coverage:-0}
+                coverage=${coverage_value:-0}
               fi
 
               flake8_file="$(dirname "$module_path")/flake8_report.txt" #Syntax and styles issues
