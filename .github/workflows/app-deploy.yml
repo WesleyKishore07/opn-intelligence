@@ -9,7 +9,7 @@ on:
       parent_module:
         description: "Parent module to deploy"
         required: true
-        default: "app-services-parent"
+        default: "app_services_parent"
       service:
         description: "Service to deploy"
         required: true
@@ -39,6 +39,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          submodules: 'true'
           ref: ${{ github.ref }}
 
       - name: Set deploy environment
@@ -80,6 +81,10 @@ jobs:
           pip install -r requirements/requirements.txt
           pip install -r requirements/requirements-dev.txt
 
+      - name: Debug file structure
+        run: ls -lR
+        working-directory: /home/runner/work/opn-intelligence
+
       - name: List available tasks
         working-directory: ./   #opn-intelligence
         run: pytest --collect-only
@@ -102,13 +107,13 @@ jobs:
         uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
         with:
-          files: "app-services-parent/${{ github.event.inputs.service}}/test-results/**/*.xml"
+          files: "app_services_parent/${{ github.event.inputs.service}}/test-results/**/*.xml"
           report_individual_runs: true
           check_name: "Test Results"
 
       - name: Run Pytest with JUnit report
         run: |
-          pytest --junitxml=app-services-parent/${{ github.event.inputs.service }}/test-results/results.xml
+          pytest --junitxml=app_services_parent/${{ github.event.inputs.service }}/test-results/results.xml
         #"pytest" runs the test suite
         #junitxml generates a Junit compatible xml test report and result will be stored in the given location
 
@@ -226,7 +231,7 @@ jobs:
               total_overall_coverage=$((total_overall_coverage + coverage))
               module_count=$((module_count + 1))
             fi
-            done < <(find ./opn-intelligence/app-services-parent -type d -name "reports" -exec dirname {} \; | sort -u )
+            done < <(find ./opn-intelligence/app_services_parent -type d -name "reports" -exec dirname {} \; | sort -u )
 
           #Calculating overall metrics
           [ "$module_count" -gt 0 ] && avg_coverage=$((total_overall_coverage / module_count))
@@ -269,7 +274,7 @@ jobs:
           mkdir -p "$UPLOAD_DIR"
 
           # Find parent modules
-          parent_modules=$(find ./app-services-parent -maxdepth 1 -type d)
+          parent_modules=$(find ./app_services_parent -maxdepth 1 -type d)
 
           # Create main index template
           cat > index_template.html << 'EOL'
@@ -386,7 +391,7 @@ jobs:
 
 
            # Process modules inside python-services
-          find ./app-services-parent -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
+          find ./app_services_parent -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
               dir_name=$(basename "$dir")
               if [[ "$dir_name" != "venv" && "$dir_name" != "__pycache__" && "$dir_name" != "logs" && \
                     "$dir_name" != "config" && "$dir_name" != "docs" ]]; then
