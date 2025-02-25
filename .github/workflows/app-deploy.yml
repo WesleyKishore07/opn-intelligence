@@ -116,7 +116,7 @@ jobs:
         uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
         with:
-          files: "app_services_parent/${{ github.event.inputs.service}}/test-results/**/*.xml"
+          files: "app_services_parent/shipment/test-results/**/*.xml"
           report_individual_runs: true
           check_name: "Test Results"
 
@@ -615,5 +615,4 @@ jobs:
             --namespace opn-intelligence-${{ env.DEPLOY_ENV }} \
             --create-namespace \
             helm/service
-
 
