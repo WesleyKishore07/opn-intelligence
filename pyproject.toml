@@ -39,21 +39,21 @@ packages = [
 ]
 
 [tool.setuptools.package-dir]
-"app_services_parent" = "app-services-parent"
+"app_services_parent" = "app_services_parent"
 
 [tool.pytest.ini_options]
 testpaths = [
-    "app-services-parent/infinity/tests",
-    "app-services-parent/onboarding/tests",
-    "app-services-parent/operations/tests",
-    "app-services-parent/pre_onboarding/tests",
-    "app-services-parent/settlement/tests",
-    "app-services-parent/shipment/tests"
+    "app_services_parent/infinity/tests",
+    "app_services-parent/onboarding/tests",
+    "app_services_parent/operations/tests",
+    "app_services_parent/pre_onboarding/tests",
+    "app_services_parent/settlement/tests",
+    "app_services_parent/shipment/tests"
 ]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --cov=app-services-parent --cov-report=term-missing"
+addopts = "-v --cov=app_services_parent --cov-report=term-missing"
 markers = [
     "asyncio: mark test as an async test",
 ]
