@@ -1,5 +1,8 @@
 name: Build and deploy service for opn -intelligence
 on:
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       environment:
@@ -119,6 +122,9 @@ jobs:
           files: "app_services_parent/shipment/test-results/**/*.xml"
           report_individual_runs: true
           check_name: "Test Results"
+      
+      - name: Debug test results path
+        run: ls -lah app_services_parent/shipment/test-results/
 
       - name: Run Pytest with JUnit report
         run: |
@@ -130,149 +136,162 @@ jobs:
         id: report
         run: |
           {
-            echo "# Pull Request Quality Check Summary"
-            echo "Build: #${GITHUB_RUN_NUMBER} - ${GITHUB_SHA::7}"
-            echo ""
+            echo "# Pull Request Quality Check Summary"  
+            echo "Build: #${GITHUB_RUN_NUMBER} - ${GITHUB_SHA::7}"  
+            echo ""  
 
-            # PRinting the table HEader
-            echo "| Module | Tests | Coverage | Quality Issues | Status | Reports |"
-            echo "|--------|-------|----------|----------------|--------|---------|"
+            # Printing the table Header  
+            echo "| Module | Tests | Coverage | Quality Issues | Status | Reports |"  
+            echo "|--------|-------|----------|----------------|--------|---------|"  
 
-            #Process each module
-            while IFS= read -r module_path; do
-              if [ -d "$module_path" ]; then
-                module_name=$(basename "$(dirname "$module_path")")
-                
-              #Create report artifact links
-              artifacts_base="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-              test_link="$artifacts_base"
-              coverage_link="$artifacts_base"
-              qualtiy_link="$artifacts_base"
+            # Initialize variables  
+            total_all_tests=0  
+            total_all_passed=0  
+            total_overall_coverage=0  
+            module_count=0  
 
-              #Test Results
-              test_results=0
-              test_failures=0
-              test_passed=0
+            # Check if the base directory exists  
+            if [ ! -d "./opn-intelligence/app_services_parent" ]; then  
+                echo "Target directory not found. Skipping module processing."  
+                exit 0  # or handle gracefully  
+            fi  
 
-              while IFS=read -r test_file; do
-                if [ -f "$test_file" ]; then
-                  tests=$(grep -oP 'tests="K[^"]+' "$test_file" | echo "0")
-                  failures=$(grep -oP 'failures="K[^"]+' "$test_file" | echo "0")
-                  errors=$(grep -oP 'error="K[^"]+' "$test_file" | echo "0")
+            # Process each module  
+            while IFS= read -r module_path; do  
+                if [ -d "$module_path" ]; then  
+                    module_name=$(basename "$(dirname "$module_path")")  
+                    
+                    # Create report artifact links  
+                    artifacts_base="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"  
+                    test_link="$artifacts_base"  
+                    coverage_link="$artifacts_base"  
+                    quality_link="$artifacts_base"  
 
-                  test_results=$((test_results + ${tests:-0}))
-                  test_failures=$((test_failures + ${failures:-0} + ${errors:-0}))
-                fi              
-              done < <(find "$(dirname "$module_path")" -name "TEST_*.xml" 2>/main/null)
+                    # Test Results  
+                    test_results=0  
+                    test_failures=0  
+                    test_passed=0  
 
-              test_passed=$((test_results - test_failures))
+                    while IFS=read -r test_file; do  
+                        if [ -f "$test_file" ]; then  
+                            tests=$(grep -oP 'tests="[^"]+' "$test_file" | awk -F'"' '{print $2}' || echo "0")  
+                            failures=$(grep -oP 'failures="[^"]+' "$test_file" | awk -F'"' '{print $2}' || echo "0")  
+                            errors=$(grep -oP 'errors="[^"]+' "$test_file" | awk -F'"' '{print $2}' || echo "0")  
 
-              #Coverage
-              coverage=0
-              coverage_file=$(find "$(dirname "$module_path")/coverage.xml"
-              if[ -f "$coverage_file" ]; then
-                coverage=$(grep -oP '(?<=Line-rate=")[^"]+' "$coverage_file" | awk '{print $1*100}' | head -1)
-                coverage=${coverage_value:-0}
-              fi
+                            test_results=$((test_results + ${tests:-0}))  
+                            test_failures=$((test_failures + ${failures:-0} + ${errors:-0}))  
+                        fi              
+                    done < <(find "$(dirname "$module_path")" -name "TEST_*.xml" 2>/dev/null)  
 
-              flake8_file="$(dirname "$module_path")/flake8_report.txt" #Syntax and styles issues
-              pylint_file="$(dirname "$module_path")/pylint_report.txt" #for code quality, including logical errors (E, W, C, R)
-              bandit_file="$(dirname "$module_path")/bandit_report.txt" #for security vulnerabilities
+                    test_passed=$((test_results - test_failures))  
 
-              flake8_count=0
-              pylint_count=0
-              bandit_count=0
-              declare -a quality_issues=()
+                    # Coverage  
+                    coverage=0  
+                    coverage_file=$(find "$(dirname "$module_path")" -name "coverage.xml" 2> /dev/null)  
+                    if [ -f "$coverage_file" ]; then  
+                        coverage=$(grep -oP '(?<=Line-rate=")[^"]+' "$coverage_file" | awk '{print $1*100}' | head -1)  
+                        coverage=${coverage:-0}  
+                    fi  
 
-              if [ -f "$flake8_file" ]; then
-                flake8_count=$(wc -l < "$flake8_file" || echo 0)
-                while IFS= read -r line; do
-                  quality_issues+=("Flake8: $line")
-                done < "$flake8_file"
-              fi
+                    # Quality Reports  
+                    flake8_file="$(dirname "$module_path")/flake8_report.txt"  
+                    pylint_file="$(dirname "$module_path")/pylint_report.txt"  
+                    bandit_file="$(dirname "$module_path")/bandit_report.txt"  
 
-              if [ -f "$pylint_file" ]; then
-                pylint_count=$(grep -c "^[EWCR]" "$pylint_file" || echo "0")
-                while IFS= read -r line; do
-                  quality_issues+=("Pylint: $line")
-                done < <(grep "^[EWCR]" "$pylint_file" | head -5) # E- Error, W- Warning, C- Convention, R- Refactor, looks for line that starts with E or W or C or R
-              fi
+                    flake8_count=0  
+                    pylint_count=0  
+                    bandit_count=0  
+                    declare -a quality_issues=()  
 
-              if [ -f "$bandit_file" ]; then
-                bandit_count=$(grep -c "Issue:" "$bandit_file" || echo "0")
-                while IFS= read -r line; do
-                  quality_issues+=("Bandit: $line")
-                done < <(grep "Issue:" "$bandit_file" | head -5)
-              fi
+                    if [ -f "$flake8_file" ]; then  
+                        flake8_count=$(wc -l < "$flake8_file" || echo 0)  
+                        while IFS= read -r line; do  
+                            quality_issues+=("Flake8: $line")  
+                        done < "$flake8_file"  
+                    fi  
 
+                    if [ -f "$pylint_file" ]; then  
+                        pylint_count=$(grep -c "^[EWCR]" "$pylint_file" || echo "0")  
+                        while IFS= read -r line; do  
+                            quality_issues+=("Pylint: $line")  
+                        done < <(grep "^[EWCR]" "$pylint_file" | head -5)  
+                    fi  
 
-              #Calculation status
-              test_status="✅"
-              [ $test_failures -gt 0 ] && test_status="❌"
-              [ $test_results -eq 0 ] && test_status="❌"
+                    if [ -f "$bandit_file" ]; then  
+                        bandit_count=$(grep -c "Issue:" "$bandit_file" || echo "0")  
+                        while IFS= read -r line; do  
+                            quality_issues+=("Bandit: $line")  
+                        done < <(grep "Issue:" "$bandit_file" | head -5)  
+                    fi  
 
-              coverage_status="✅"
-              [ $coverage -lt 80 ] && coverage_status="❌"
+                    # Calculation status  
+                    test_status="✅"  
+                    [ "$test_failures" -gt 0 ] && test_status="❌"  
+                    [ "$test_results" -eq 0 ] && test_status="❌"  
 
-              quality_status="✅"
-              [ "$((flake8_count + pylint_count + bandit_count))" -gt 0 ] && quality_status="❌"
+                    coverage_status="✅"  
+                    [ "$coverage" -lt 80 ] && coverage_status="❌"  
 
-              overall_status="✅"
-              [[ "$test_status"== "❌" || "$coverage_status" == "❌" || "$quality_status" == "❌" ]] && overall_status="❌"
+                    quality_status="✅"  
+                    [ "$((flake8_count + pylint_count + bandit_count))" -gt 0 ] && quality_status="❌"  
 
-              echo "| $module_name | $test_passed/$test_results $test_status | ${coverage}% $coverage_status | Flake8:$flake8_count, Pylint:$pylint_count, Bandit:$bandit_count $quality_status | $overall_status | [Reports]($artifacts_base) |"
+                    overall_status="✅"  
+                    [[ "$test_status" == "❌" || "$coverage_status" == "❌" || "$quality_status" == "❌" ]] && overall_status="❌"  
 
-              #Adding issue summary
-              if [ ${#quality_issues[@]} -gt 0 ]; then
-                echo ""
-                echo "Quality Issues Summary"
-                echo "| Issue |"
-                echo "|-------|"
-                for issue in "${quality_issues[@]}"; do
-                  echo "| $issue |"
-                done
-                echo "</details>"
-                echo ""
-              fi
+                    # Print module report  
+                    echo "| $module_name | $test_passed/$test_results $test_status | ${coverage}% $coverage_status | Flake8:$flake8_count, Pylint:$pylint_count, Bandit:$bandit_count $quality_status | $overall_status | [Reports]($artifacts_base) |"  
 
-              total_all_tests=$((total_all_tests + test_results))
-              total_all_passed=$((total_all_passed + test_passed))
-              total_overall_coverage=$((total_overall_coverage + coverage))
-              module_count=$((module_count + 1))
-            fi
-            done < <(find ./opn-intelligence/app_services_parent -type d -name "reports" -exec dirname {} \; | sort -u )
+                    # Adding issue summary  
+                    if [ ${#quality_issues[@]} -gt 0 ]; then  
+                        echo ""  
+                        echo "Quality Issues Summary"  
+                        echo "| Issue |"  
+                        echo "|-------|"  
+                        for issue in "${quality_issues[@]}"; do  
+                            echo "| $issue |"  
+                        done  
+                        echo "</details>"  
+                        echo ""  
+                    fi  
 
-          #Calculating overall metrics
-          [ "$module_count" -gt 0 ] && avg_coverage=$((total_overall_coverage / module_count))
-          [ "$total_all_tests" -gt 0 ] && overall_pass_rate=$((total_all_passed * 100 / total_all_tests))
-          total_quality_issues=$((total_flake8 + total_pylint + total_bandit))
+                    total_all_tests=$((total_all_tests + test_results))  
+                    total_all_passed=$((total_all_passed + test_passed))  
+                    total_overall_coverage=$((total_overall_coverage + coverage))  
+                    module_count=$((module_count + 1))  
+                fi  
+            done < <(find ./opn-intelligence/app_services_parent -type d -name "reports" -exec dirname {} \; | sort -u)  
 
-          echo "- Total Tests: $total_all_passed/$total_all_tests (${overall_pass_rate}%)"
-          echo "- Average Coverage: ${avg_coverage}%"
-          echo "- Total Quality Issues: Flake8:$total_flake8, Pylint:$total_pylint, Bandit:$total_bandit"
-          echo ""
+            # Calculating overall metrics  
+            [ "$module_count" -gt 0 ] && avg_coverage=$((total_overall_coverage / module_count)) || avg_coverage=0  
+            [ "$total_all_tests" -gt 0 ] && overall_pass_rate=$((total_all_passed * 100 / total_all_tests)) || overall_pass_rate=100  
+            total_quality_issues=$((flake8_count + pylint_count + bandit_count))  
 
-          echo "## Quick Actions Required"
-          echo ""
+            echo "- Total Tests: $total_all_passed/$total_all_tests (${overall_pass_rate}%)"  
+            echo "- Average Coverage: ${avg_coverage}%"  
+            echo "- Total Quality Issues: Flake8:$flake8_count, Pylint:$pylint_count, Bandit:$bandit_count"  
+            echo ""  
 
-          # Add quick actions with direct artifact links
-          [ "$overall_pass_rate" -lt 100 ] && echo "- [ ] Fix failing tests ([View Reports]($artifacts_base))"
-          [ "$avg_coverage" -lt 80 ] && echo "- [ ] Improve code coverage ([View Reports]($artifacts_base))"
-          [ "$total_quality_issues" -gt 0 ] && echo "- [ ] Address code quality issues ([View Reports]($artifacts_base))"
+            echo "## Quick Actions Required"  
+            echo ""  
 
-          echo ""
-          echo "## Build Information"
-          echo "- Build Time: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-          echo "- Pipeline Link: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          echo ""
-          echo "To merge this PR, all checks must pass their thresholds."
+            # Add quick actions with direct artifact links  
+            [ "$overall_pass_rate" -lt 100 ] && echo "- [ ] Fix failing tests ([View Reports]($artifacts_base))"  
+            [ "$avg_coverage" -lt 80 ] && echo "- [ ] Improve code coverage ([View Reports]($artifacts_base))"  
+            [ "$total_quality_issues" -gt 0 ] && echo "- [ ] Address code quality issues ([View Reports]($artifacts_base))"  
 
-          } > report.md
+            echo ""  
+            echo "## Build Information"  
+            echo "- Build Time: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"  
+            echo "- Pipeline Link: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"  
+            echo ""  
+            echo "To merge this PR, all checks must pass their thresholds."  
 
-          # Save report content for PR comment
-          echo "report_content<<EOF" >> $GITHUB_OUTPUT
-          cat report.md >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+            # Save report content for PR comment  
+            {  
+                echo "report_content<<EOF"  
+                cat report.md  
+                echo "EOF"  
+            } > $GITHUB_OUTPUT  
 
       - name: Prepare and Upload Reports
         if: always()
@@ -282,161 +301,148 @@ jobs:
           rm -rf "$UPLOAD_DIR"
           mkdir -p "$UPLOAD_DIR"
 
+          # Ensure parent directory exists before proceeding
+          PARENT_DIR="./opn-intelligence/app_services_parent"
+
+          if [ ! -d "$PARENT_DIR" ]; then
+              echo "Error: Directory $PARENT_DIR not found!"
+              exit 1  # Exit to prevent further errors
+          fi
+
           # Find parent modules
-          parent_modules=$(find ./app_services_parent -maxdepth 1 -type d)
+          parent_modules=$(find "$PARENT_DIR" -maxdepth 1 -type d)
 
           # Create main index template
           cat > index_template.html << 'EOL'
           <!DOCTYPE html>
           <html lang="en">
-              <head>
-                  <meta charset="UTF-8">
-                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                  <title>Quality Reports</title>
-                  <style>
-                      body {
-                          font-family: Arial, sans-serif;
-                          margin: 20px;
-                          line-height: 1.6;
-                      }
-                      h1 {
-                          color: #333;
-                          border-bottom: 2px solid #eee;
-                          padding-bottom: 10px;
-                      }
-                      .report-link {
-                          display: block;
-                          margin: 10px 0;
-                          padding: 15px;
-                          background: #f5f5f5;
-                          border-radius: 5px;
-                          text-decoration: none;
-                          color: #333;
-                          transition: background-color 0.2s ease;
-                      }
-                      .report-link:hover {
-                          background: #e0e0e0;
-                      }
-                      .container {
-                          max-width: 1200px;
-                          margin: 0 auto;
-                          padding: 20px;
-                      }
-                  </style>
-              </head>
-              <body>
-                  <div class="container">
-                      <h1>MODULE_TITLE</h1>
-                      REPORT_LINKS
-                  </div>
-              </body>
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Quality Reports</title>
+              <style>
+                  body {
+                      font-family: Arial, sans-serif;
+                      margin: 20px;
+                      line-height: 1.6;
+                  }
+                  h1 {
+                      color: #333;
+                      border-bottom: 2px solid #eee;
+                      padding-bottom: 10px;
+                  }
+                  .report-link {
+                      display: block;
+                      margin: 10px 0;
+                      padding: 15px;
+                      background: #f5f5f5;
+                      border-radius: 5px;
+                      text-decoration: none;
+                      color: #333;
+                      transition: background-color 0.2s ease;
+                  }
+                  .report-link:hover {
+                      background: #e0e0e0;
+                  }
+                  .container {
+                      max-width: 1200px;
+                      margin: 0 auto;
+                      padding: 20px;
+                  }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>MODULE_TITLE</h1>
+                  REPORT_LINKS
+              </div>
+          </body>
           </html>
           EOL
 
           process_module() {
-          local module_dir="$1"
-          local module_name=$(basename "$module_dir")
+              local module_dir="$1"
+              local module_name=$(basename "$module_dir")
 
-          echo "Processing module: $module_name"
-          local module_reports="$UPLOAD_DIR/$module_name"
-          mkdir -p "$module_reports"
+              echo "Processing module: $module_name"
+              local module_reports="$UPLOAD_DIR/$module_name"
+              mkdir -p "$module_reports"
 
-          # Copy test results (pytest JUnit XML format)
-          if [ -f "$module_dir/test-results/results.xml" ]; then
-              echo "Found test results for $module_name"
-              mkdir -p "$module_reports/tests"
-              cp "$module_dir/test-results/results.xml" "$module_reports/tests/" || true
-          fi
+              # Copy test results (pytest JUnit XML format)
+              if [ -f "$module_dir/test-results/results.xml" ]; then
+                  mkdir -p "$module_reports/tests"
+                  cp "$module_dir/test-results/results.xml" "$module_reports/tests/" || true
+              fi
 
-          # Copy coverage report (HTML)
-          if [ -d "$module_dir/test-results/coverage" ]; then
-              echo "Found coverage report for $module_name"
-              mkdir -p "$module_reports/coverage"
-              cp -r "$module_dir/test-results/coverage/"* "$module_reports/coverage/" || true
-          fi
+              # Copy coverage report (HTML)
+              if [ -d "$module_dir/test-results/coverage" ]; then
+                  mkdir -p "$module_reports/coverage"
+                  cp -r "$module_dir/test-results/coverage/"* "$module_reports/coverage/" || true
+              fi
 
-          # Copy quality reports
-          mkdir -p "$module_reports/quality"
+              # Copy quality reports
+              mkdir -p "$module_reports/quality"
 
-          # Flake8 (Style issues)
-          if [ -f "$module_dir/test-results/flake8-report.txt" ]; then
-              echo "Found flake8 report for $module_name"
-              mkdir -p "$module_reports/quality/flake8"
-              cp "$module_dir/test-results/flake8-report.txt" "$module_reports/quality/flake8/" || true
-          fi
+              # Flake8 (Style issues)
+              if [ -f "$module_dir/test-results/flake8-report.txt" ]; then
+                  mkdir -p "$module_reports/quality/flake8"
+                  cp "$module_dir/test-results/flake8-report.txt" "$module_reports/quality/flake8/" || true
+              fi
 
-          # Pylint (Static analysis)
-          if [ -f "$module_dir/test-results/pylint-report.txt" ]; then
-              echo "Found pylint report for $module_name"
-              mkdir -p "$module_reports/quality/pylint"
-              cp "$module_dir/test-results/pylint-report.txt" "$module_reports/quality/pylint/" || true
-          fi
+              # Pylint (Static analysis)
+              if [ -f "$module_dir/test-results/pylint-report.txt" ]; then
+                  mkdir -p "$module_reports/quality/pylint"
+                  cp "$module_dir/test-results/pylint-report.txt" "$module_reports/quality/pylint/" || true
+              fi
 
-          # Bandit (Security analysis)
-          if [ -f "$module_dir/test-results/bandit-report.txt" ]; then
-              echo "Found bandit report for $module_name"
-              mkdir -p "$module_reports/quality/bandit"
-              cp "$module_dir/test-results/bandit-report.txt" "$module_reports/quality/bandit/" || true
-          fi
+              # Bandit (Security analysis)
+              if [ -f "$module_dir/test-results/bandit-report.txt" ]; then
+                  mkdir -p "$module_reports/quality/bandit"
+                  cp "$module_dir/test-results/bandit-report.txt" "$module_reports/quality/bandit/" || true
+              fi
 
+              # Create index.html if we have reports
+              if [ "$(find "$module_reports" -type f | wc -l)" -gt 0 ]; then
+                  report_links=""
+                  [ -f "$module_reports/tests/results.xml" ] && report_links+="                      <a class=\"report-link\" href=\"tests/results.xml\">Test Report (JUnit)</a>\\n"
+                  [ -d "$module_reports/coverage" ] && report_links+="                      <a class=\"report-link\" href=\"coverage/index.html\">Coverage Report</a>\\n"
+                  [ -f "$module_reports/quality/flake8/flake8-report.txt" ] && report_links+="                      <a class=\"report-link\" href=\"quality/flake8/flake8-report.txt\">Flake8 Report</a>\\n"
+                  [ -f "$module_reports/quality/pylint/pylint-report.txt" ] && report_links+="                      <a class=\"report-link\" href=\"quality/pylint/pylint-report.txt\">Pylint Report</a>\\n"
+                  [ -f "$module_reports/quality/bandit/bandit-report.txt" ] && report_links+="                      <a class=\"report-link\" href=\"quality/bandit/bandit-report.txt\">Bandit Report</a>\\n"
 
-           # Create index.html if we have reports
-          if [ -n "$(find "$module_reports" -type f 2>/main/null)" ]; then
-              # Generate report links
-              report_links=""
-              [ -f "$module_reports/tests/results.xml" ] && report_links+="                      <a class=\"report-link\" href=\"tests/results.xml\">Test Report (JUnit)</a>\\n"
-              [ -d "$module_reports/coverage" ] && report_links+="                      <a class=\"report-link\" href=\"coverage/index.html\">Coverage Report</a>\\n"
-              [ -f "$module_reports/quality/flake8/flake8-report.txt" ] && report_links+="                      <a class=\"report-link\" href=\"quality/flake8/flake8-report.txt\">Flake8 Report</a>\\n"
-              [ -f "$module_reports/quality/pylint/pylint-report.txt" ] && report_links+="                      <a class=\"report-link\" href=\"quality/pylint/pylint-report.txt\">Pylint Report</a>\\n"
-              [ -f "$module_reports/quality/bandit/bandit-report.txt" ] && report_links+="                      <a class=\"report-link\" href=\"quality/bandit/bandit-report.txt\">Bandit Report</a>\\n"
+                  # Create index.html from template
+                  sed -e "s|MODULE_TITLE|Quality Reports - $module_name|" \
+                      -e "s|REPORT_LINKS|$report_links|" \
+                      index_template.html > "$module_reports/index.html"
+              else
+                  rm -rf "$module_reports"
+              fi
+          }
 
-              # Create index.html from template
-              sed -e "s|MODULE_TITLE|Quality Reports - $module_name|" \
-                  -e "s|REPORT_LINKS|$report_links|" \
-                  index_template.html > "$module_reports/index.html"
-          else
-              rm -rf "$module_reports"
-          fi
-
-
-           # Process modules inside python-services
-          find ./app_services_parent -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
-              dir_name=$(basename "$dir")
-              if [[ "$dir_name" != "venv" && "$dir_name" != "__pycache__" && "$dir_name" != "logs" && \
-                    "$dir_name" != "config" && "$dir_name" != "docs" ]]; then
-                  if [ -d "$dir/reports" ]; then
-                      process_module "$dir"
-                  fi
+          # Process modules inside app_services_parent
+          find "$PARENT_DIR" -mindepth 1 -maxdepth 1 -type d | while read -r module_dir; do
+              if [ -d "$module_dir/reports" ]; then
+                  process_module "$module_dir"
               fi
           done
-
-          # Process parent modules
-          echo "$parent_modules" | while read -r parent_dir; do
-              if [ -n "$parent_dir" ]; then
-                  find "$parent_dir" -mindepth 1 -maxdepth 1 -type d | while read -r module_dir; do
-                      if [ -d "$module_dir/reports" ]; then
-                          process_module "$module_dir"
-                      fi
-                  done
-              fi
-          done
-
 
           # Create main index.html
-          if [ -n "$(find "$UPLOAD_DIR" -mindepth 1 -type d 2>/main/null)" ]; then
-            module_links=""
-            find "$UPLOAD_DIR" -mindepth 1 -maxdepth 1 -type d | sort | while read -r module_dir; do
-              module_name=$(basename "$module_dir")
-              module_links+="                      <a class=\"report-link\" href=\"$module_name/index.html\">$module_name</a>\\n"
-            done
+          if [ "$(find "$UPLOAD_DIR" -mindepth 1 -type d | wc -l)" -gt 0 ]; then
+              module_links=""
+              find "$UPLOAD_DIR" -mindepth 1 -maxdepth 1 -type d | sort | while read -r module_dir; do
+                  module_name=$(basename "$module_dir")
+                  module_links+="                      <a class=\"report-link\" href=\"$module_name/index.html\">$module_name</a>\\n"
+              done
 
-            sed -e "s|MODULE_TITLE|Quality Reports|" \
-                -e "s|REPORT_LINKS|$module_links|" \
-                index_template.html > "$UPLOAD_DIR/index.html"
+              sed -e "s|MODULE_TITLE|Quality Reports|" \
+                  -e "s|REPORT_LINKS|$module_links|" \
+                  index_template.html > "$UPLOAD_DIR/index.html"
           fi
 
           echo "Files to be uploaded:"
-          find "$UPLOAD_DIR" -type f | wc -1
+          find "$UPLOAD_DIR" -type f | wc -l
+
+
 
           - name: Upload Quality Reports
           if: always()
