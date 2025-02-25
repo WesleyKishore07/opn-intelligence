@@ -15,13 +15,13 @@ on:
         required: true
         type: choice
         options:
-          - infinity
-          - onboarding
-          - operations
-          - pre_onboarding
-          - settlement
           - shipment
-        default: "infinity"
+          # - infinity
+          # - onboarding
+          # - operations
+          # - pre_onboarding
+          # - settlement      
+        default: "shipment"
 permissions:
   id-token: write
   contents: write
