@@ -442,64 +442,62 @@ jobs:
           echo "Files to be uploaded:"
           find "$UPLOAD_DIR" -type f | wc -l
 
+      - name: Upload Quality Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-reports
+          path: reports/
+          if-no-files-found: warn
+          compression-level: 6
+          overwrite: true
 
+      - name: Upload Summary Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: summary
+          path: reports/summary.md  
 
-          - name: Upload Quality Reports
-          if: always()
-          uses: actions/upload-artifact@v4
-          with:
-            name: quality-reports
-            path: reports/
-            if-no-files-found: warn
-            compression-level: 6
-            overwrite: true
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const reportPath = 'reports/summary.md';
+            let report = '';
 
-          - name: Upload Summary Report
-          if: always()
-          uses: actions/upload-artifact@v4
-          with:
-            name: summary
-            path: reports/summary.md  
+            if (fs.existsSync(reportPath)) {
+              report = fs.readFileSync(reportPath, 'utf8');
+            } else {
+              report = 'No summary report available.';
+            }
 
-          - name: Comment on PR
-          if: github.event_name == 'pull_request'
-          uses: actions/github-script@v6
-          with:
-            github-token: ${{ secrets.GITHUB_TOKEN }}
-            script: |
-              const fs = require('fs');
-              const reportPath = 'reports/summary.md';
-              let report = '';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: report
+            });
 
-              if (fs.existsSync(reportPath)) {
-                report = fs.readFileSync(reportPath, 'utf8');
-              } else {
-                report = 'No summary report available.';
-              }
+  opn-apps-service-container:
+    name: Deploy to opn ${{ github.event.inputs.service }} App ${{ github.event.inputs.environment || 'main' }}
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
 
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.payload.pull_request.number,
-                body: report
-              });
-
-              opn-apps-service-container:
-              name: Deploy to opn ${{ github.event.inputs.service }} App ${{ github.event.inputs.environment || 'main' }}
-              runs-on: ubuntu-latest
-              if: github.event_name == 'push'
-
-              steps:
-                - name: Set deployment environment
-                  id: set-env
-                  run: |
-                    if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-                      echo "PARENT_MODULE=${{ github.event.inputs.parent_module }}" >> $GITHUB_ENV
-                      echo "SERVICE=${{ github.event.inputs.service }}" >> $GITHUB_ENV
-                      echo "DEPLOY_ENV=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
-                    else
-                      echo "DEPLOY_ENV=main" >> $GITHUB_ENV
-                    fi
+    steps:
+      - name: Set deployment environment
+        id: set-env
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "PARENT_MODULE=${{ github.event.inputs.parent_module }}" >> $GITHUB_ENV
+            echo "SERVICE=${{ github.event.inputs.service }}" >> $GITHUB_ENV
+            echo "DEPLOY_ENV=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
+          else
+            echo "DEPLOY_ENV=main" >> $GITHUB_ENV
+          fi
 
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -551,7 +549,7 @@ jobs:
             ./opn-core-services-parent/$PARENT_MODULE/$SERVICE/entrypoint.sh
           fi
 
-#Login to the AWS ECR
+      #Login to the AWS ECR
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
@@ -587,7 +585,6 @@ jobs:
 
       - name: Copy Values File
         run: |
-  
           cp ./infra/$DEPLOY_ENV/values.opn-intelligence.yaml  HelmNest/helm/service/
 
       - name: Update Helm chart with new image tag
@@ -621,4 +618,3 @@ jobs:
             --namespace opn-intelligence-${{ env.DEPLOY_ENV }} \
             --create-namespace \
             helm/service
-
