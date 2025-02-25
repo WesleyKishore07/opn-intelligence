@@ -5,7 +5,7 @@ on:
       environment:
         description: "Environment to deploy to"
         required: true
-        default: "dev"
+        default: "main"
       parent_module:
         description: "Parent module to deploy"
         required: true
@@ -15,13 +15,13 @@ on:
         required: true
         type: choice
         options:
-          - infinity
-          - onboarding
-          - operations
-          - pre_onboarding
-          - settlement
           - shipment
-        default: "infinity"
+          # - infinity
+          # - onboarding
+          # - operations
+          # - pre_onboarding
+          # - settlement      
+        default: "shipment"
 permissions:
   id-token: write
   contents: write
@@ -48,17 +48,20 @@ jobs:
           if [ -n "${{ github.event_name }}" ="workflow_dispatch" ]; then
             echo "DEPLOY_ENV=${{ github.event.inputs.environment}}" >> $GITHUB_ENV
           else
-            echo "DEPLOY_ENV=dev" >> $GITHUB_ENV
+            echo "DEPLOY_ENV=main" >> $GITHUB_ENV
           fi
           
       - name: Prod Deployment Check
         if: ${{ env.DEPLOY_ENV == 'prod' || startsWith(env.DEPLOY_ENV, 'prod') }}
-        run: "CODEOWNERS=$(grep -v '^#' .github/CODEOWNERS | awk '{print $NF}' | sort | uniq )
-          if ! echo \"$CODEOWNERS\" | grep -w \"${{ github.actor }}\"; then
-            echo \"❌ You are not authorised to do the deployment in the production\" 
+        run: |
+          CODEOWNERS=$(grep -v '^#' .github/CODEOWNERS | awk '{print $NF}' | sort | uniq)
+          
+          if ! echo "$CODEOWNERS" | grep -w "${{ github.actor }}"; then
+            echo "❌ You are not authorised to do the deployment in the production"
             exit 1
           else
-            echo \"✅ Authorised to do the deployment in the production - ${{github.actor}}\"\nfi\n"
+            echo "✅ Authorised to do the deployment in the production - ${{ github.actor }}"
+          fi
 
         #Setting up the python environment
       - name: Set up Python
@@ -84,20 +87,26 @@ jobs:
       - name: Debug file structure
         run: ls -lR
         working-directory: /home/runner/work/opn-intelligence
+        
+      - name: Debug directory structure
+        run: |
+          ls -l /home/runner/work/opn-intelligence/opn-intelligence || echo "Directory not found"
+          ls -l /home/runner/work/opn-intelligence/opn-intelligence/app_services_parent || echo "app_services_parent directory not found"
+
 
       - name: List available tasks
-        working-directory: ./   #opn-intelligence
+        working-directory: .
         run: pytest --collect-only
 
         #It will basically generates a xml and a html report by executing all the test cases   using pytest
       - name: Run tests and generate coverage
-        working-directory: ./opn-intelligence
+        working-directory: .
         run: |
-          pytest --cov=app --cov-report=xml --cov-report=html --junitxml=test-results/junit-report.xml
+          pytest --cov=app_services_parento --cov-report=xml --cov-report=html --junitxml=test-results/junit-report.xml
 
       #it is used to show the coverage summary
       - name: Generating the coverage report
-        working-directory: ./opn-intelligence
+        working-directory: .
         run: |
           coverage report -m     
           coverage xml -o coverage.xml 
@@ -154,7 +163,7 @@ jobs:
                   test_results=$((test_results + ${tests:-0}))
                   test_failures=$((test_failures + ${failures:-0} + ${errors:-0}))
                 fi              
-              done < <(find "$(dirname "$module_path")" -name "TEST_*.xml" 2>/dev/null)
+              done < <(find "$(dirname "$module_path")" -name "TEST_*.xml" 2>/main/null)
 
               test_passed=$((test_results - test_failures))
 
@@ -372,7 +381,7 @@ jobs:
 
 
            # Create index.html if we have reports
-          if [ -n "$(find "$module_reports" -type f 2>/dev/null)" ]; then
+          if [ -n "$(find "$module_reports" -type f 2>/main/null)" ]; then
               # Generate report links
               report_links=""
               [ -f "$module_reports/tests/results.xml" ] && report_links+="                      <a class=\"report-link\" href=\"tests/results.xml\">Test Report (JUnit)</a>\\n"
@@ -414,7 +423,7 @@ jobs:
 
 
           # Create main index.html
-          if [ -n "$(find "$UPLOAD_DIR" -mindepth 1 -type d 2>/dev/null)" ]; then
+          if [ -n "$(find "$UPLOAD_DIR" -mindepth 1 -type d 2>/main/null)" ]; then
             module_links=""
             find "$UPLOAD_DIR" -mindepth 1 -maxdepth 1 -type d | sort | while read -r module_dir; do
               module_name=$(basename "$module_dir")
@@ -470,7 +479,7 @@ jobs:
               });
 
               opn-apps-service-container:
-              name: Deploy to opn ${{ github.event.inputs.service }} App ${{ github.event.inputs.environment || 'dev' }}
+              name: Deploy to opn ${{ github.event.inputs.service }} App ${{ github.event.inputs.environment || 'main' }}
               runs-on: ubuntu-latest
               if: github.event_name == 'push'
 
@@ -483,7 +492,7 @@ jobs:
                       echo "SERVICE=${{ github.event.inputs.service }}" >> $GITHUB_ENV
                       echo "DEPLOY_ENV=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
                     else
-                      echo "DEPLOY_ENV=dev" >> $GITHUB_ENV
+                      echo "DEPLOY_ENV=main" >> $GITHUB_ENV
                     fi
 
       - name: Checkout Code
@@ -521,7 +530,7 @@ jobs:
 
       - name: Build Docker Image
         run: |
-          if [ "${{ github.event.inputs.environment }}" == "dev" ]; then
+          if [ "${{ github.event.inputs.environment }}" == "main" ]; then
             export PASSPHRASE=${{ secrets.DECRYPTION_PASSWORD }}
             echo "PASSPHRASE SET"
             chmod +x ./opn-core-services-parent/$PARENT_MODULE/$SERVICE/entrypoint.sh
@@ -549,8 +558,8 @@ jobs:
           REPOSITORY: container-registry
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          if [ "${{ env.DEPLOY_ENV }}" == "dev" ]; then
-            echo "Using dev Dockerfile and entrypoint.sh"
+          if [ "${{ env.DEPLOY_ENV }}" == "main" ]; then
+            echo "Using main Dockerfile and entrypoint.sh"
             export DEPLOY_ENV=$DEPLOY_ENV
             export PASSPHRASE=${{ secrets.DECRYPTION_PASSWORD }}
             sh docker/entrypoint.sh
@@ -583,7 +592,7 @@ jobs:
       - name: Authenticate with AWS EKS
         run: |
           case "${{ env.DEPLOY_ENV }}" in
-            dev)
+            main)
               EKS_CLUSTER_NAME="${{ vars.DEV_CLUSTER }}"
               ;;
             prod)
@@ -606,6 +615,5 @@ jobs:
             --namespace opn-intelligence-${{ env.DEPLOY_ENV }} \
             --create-namespace \
             helm/service
-
 
 

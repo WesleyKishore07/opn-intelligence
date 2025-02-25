@@ -4,16 +4,23 @@ from pathlib import Path
 import pytest
 import asyncio
 
-# Get the root directory
-ROOT_DIR = Path(__file__).resolve().parent
+# Get the correct root directory
+ROOT_DIR = Path(__file__).resolve().parent  # Adjusted to correct path
 
+print(f"Resolved ROOT_DIR: {ROOT_DIR}")
+print(f"Checking path: {ROOT_DIR / 'app_services_parent'}")
 def pytest_sessionstart(session):
     """
     Called after the Session object has been created and before performing collection
     and entering the run test loop.
     """
+    app_services_parent = ROOT_DIR / 'app_services_parent'
+    
+    if not app_services_parent.exists():
+        raise FileNotFoundError(f"Expected directory not found: {app_services_parent}")
+
     # Add each service directory to Python path
-    for service_dir in (ROOT_DIR / 'app-services-parent').iterdir():
+    for service_dir in app_services_parent.iterdir():
         if service_dir.is_dir() and not service_dir.name.startswith('.'):
             service_path = str(service_dir)
             if service_path not in sys.path:
