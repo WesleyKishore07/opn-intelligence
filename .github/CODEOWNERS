@@ -1,0 +1,18 @@
+
+# GitHub admins can override if need. Contact them for access
+# bhagavathy@orchestro.ai
+# sreenadh@orchestro.ai
+# ramesh@orchestro.ai
+#
+# Learn about CODEOWNERS file format
+# https://help.github.com/en/articles/about-code-owners
+
+
+# Default owner for OPN repo
+* @buggsk
+* @sreenadh-p
+* @ramesh-orchestro
+
+#	Anything deploy related
+/.github/workflows/ @RonalRaj
+/.github/workflows/ @KR-Orchestro

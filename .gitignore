@@ -1,0 +1,19 @@
+.idea/workspace.xml
+.idea/
+*.iml
+*.iws
+.idea_modules/
+.idea/
+*.iml
+*.iws
+.idea_modules/
+# Python cache files
+__pycache__/
+*.pyc
+
+# Coverage files
+.coverage
+htmlcov/
+
+# Egg info
+*.egg-info/

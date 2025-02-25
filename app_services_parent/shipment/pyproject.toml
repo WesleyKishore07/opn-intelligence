@@ -1,0 +1,9 @@
+[tool.pytest.ini_options]
+pythonpath = [
+    ".",
+    "../.."  # This adds parent directory of service to Python path
+]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+asyncio_mode = "auto"
+addopts = "-v --cov=app --cov-report=html --cov-report=term-missing"

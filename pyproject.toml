@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opn-intelligence"
+version = "1.0.0"
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "python-dotenv",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0",
+    "pytest-cov",
+    "pytest-asyncio",
+]
+
+[tool.setuptools]
+packages = [
+    "app",
+    "app.api",
+    "app.api.v1",
+    "app.core",
+    "app.core.config",
+    "app.core.middleware",
+    "app_services_parent",
+    "app_services_parent.infinity",
+    "app_services_parent.infinity.app",
+    "app_services_parent.shipment",
+    "app_services_parent.shipment.app",
+    "app_services_parent.onboarding",
+    "app_services_parent.settlement",
+    "app_services_parent.operations",
+    "app_services_parent.pre_onboarding"
+]
+
+[tool.setuptools.package-dir]
+"app_services_parent" = "app-services-parent"
+
+[tool.pytest.ini_options]
+testpaths = [
+    "app-services-parent/infinity/tests",
+    "app-services-parent/onboarding/tests",
+    "app-services-parent/operations/tests",
+    "app-services-parent/pre_onboarding/tests",
+    "app-services-parent/settlement/tests",
+    "app-services-parent/shipment/tests"
+]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --cov=app-services-parent --cov-report=term-missing"
+markers = [
+    "asyncio: mark test as an async test",
+]
+asyncio_mode = "auto"

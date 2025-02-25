@@ -1,0 +1,1 @@
+docker build  --build-arg DEPLOY_ENV=$DEPLOY_ENV  --build-arg PASSPHRASE=$PASSPHRASE -f docker/Dockerfile -t app-image-build .

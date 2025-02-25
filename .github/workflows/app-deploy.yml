@@ -1,0 +1,127 @@
+name: Deploy opn intelligence root app
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Which environment to deploy to?'
+        required: true
+        default: 'dev'
+       
+
+permissions:
+  id-token: write   
+  contents: write   
+
+jobs:
+  opn-intelligence-service-container:
+    name: Deploy to opn App ${{ github.event.inputs.environment || 'dev' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set deployment environment
+        id: set-env
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "DEPLOY_ENV=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
+          else
+            echo "DEPLOY_ENV=dev" >> $GITHUB_ENV
+          fi
+
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1.7.0
+        with:
+          role-to-assume: ${{ secrets.EKS_DEPLOY_IAM }}
+          role-session-name: GitHub_OPN_Deploy_IAM_to_AWS
+          aws-region: us-east-1
+
+      - name: Git Clone HelmNest
+        run: |
+           git clone https://github.com/Sahyog-Inc/HelmNest.git
+      
+      - name: Copy Values File
+        run: |
+
+            cp ./infra/$DEPLOY_ENV/values.opn-intelligence.yaml  HelmNest/helm/service/
+         
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+        with:
+          mask-password: 'true'
+
+      - name: Tag and Push to ECR
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: container-registry
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          if [ "${{ env.DEPLOY_ENV }}" == "dev" ]; then
+            echo "Using dev Dockerfile and entrypoint.sh"
+            export DEPLOY_ENV=$DEPLOY_ENV
+            export PASSPHRASE=${{ secrets.DECRYPTION_PASSWORD }}
+            sh docker/entrypoint.sh
+          fi
+      
+          if [ "${{ env.DEPLOY_ENV }}" == "prod" ]; then
+            echo "Using prod Dockerfile and entrypoint.sh"
+            export ENV_FILE="production"
+            export PASSPHRASE=${{ secrets.DECRYPTION_PASSWORD_PROD }}
+            sh docker/prod/entrypoint.sh
+          fi
+      
+          docker tag app-image-build:latest $REGISTRY/$REPOSITORY:opn-intelligence-$IMAGE_TAG
+          docker push $REGISTRY/$REPOSITORY:opn-intelligence-$IMAGE_TAG
+
+      - name: Update Helm chart with new image tag
+        working-directory: ./HelmNest
+        run: |
+          yq eval '.image.tag = "opn-intelligence-${{ github.sha }}"' -i helm/service/values.opn-intelligence.yaml
+
+      - name: Install CLI Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y software-properties-common
+      
+          # Install yq
+          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq && \
+          sudo chmod +x /usr/bin/yq
+      
+          # Install Helm
+          curl https://baltocdn.com/helm/signing.asc | sudo apt-key add -
+          sudo apt-get install apt-transport-https --yes
+          echo "deb https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+          
+          sudo apt-get update
+          sudo apt-get install -y helm
+
+      - name: Authenticate with AWS EKS
+        run: |
+          case "${{ env.DEPLOY_ENV }}" in
+            dev)
+              EKS_CLUSTER_NAME="${{ vars.DEV_CLUSTER }}"
+              ;;
+            prod)
+              EKS_CLUSTER_NAME="${{ vars.PROD_CLUSTER }}"
+              ;;
+            *)
+              echo "Unknown EKS_CLUSTER for: ${{ env.DEPLOY_ENV }}"
+              exit 1
+              ;;
+          esac
+
+          aws eks --region "us-east-1" update-kubeconfig --name "$EKS_CLUSTER_NAME"
+         
+      - name: Deploy Helm Chart
+        working-directory: ./HelmNest
+        run: |
+           helm upgrade --install opn-intelligence-svc-${{ env.DEPLOY_ENV }} \
+            --values helm/service/values.opn-intelligence.yaml \
+            --kubeconfig /home/runner/.kube/config \
+            --namespace opn-intelligence-${{ env.DEPLOY_ENV }} \
+            --create-namespace \
+            helm/service

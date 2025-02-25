@@ -1,0 +1,57 @@
+image:
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "opn-intelligence-64d06cfcda843ecfc62dd98f5af9f2805fa1cb88"
+  repository: "505753670778.dkr.ecr.us-east-1.amazonaws.com/container-registry"
+  pullPolicy: IfNotPresent
+service:
+  port: 8000
+ingress:
+  enabled: true
+  className:  nginx-opn-svc-dev
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+  hosts:
+    - host: api-opn-intelligence-dev.orchestro.ai
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            serviceName: ds-poc-service
+            servicePort: 80  
+
+Name: opn-dev-intelligence-svc
+fullnameOverride: opn-intelligence-dev
+
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::505753670778:role/opn-intelligence-dev-s3-role
+  create: true
+  name: opn-intelligence-s3-sa
+
+resources:
+  requests:
+    memory: "1Gi"
+    cpu: "1000m"
+  limits:
+    memory: "2Gi"
+    cpu: "2000m"
+    
+revisionHistoryLimit: 3
+
+readinessProbe:
+  httpGet:
+    path: "/api/v1/health"
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 3
+
+livenessProbe:
+  httpGet:
+    path: "/api/v1/health"
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 3
