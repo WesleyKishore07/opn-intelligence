@@ -119,6 +119,9 @@ jobs:
           files: "app_services_parent/shipment/test-results/**/*.xml"
           report_individual_runs: true
           check_name: "Test Results"
+          
+      - name: Debug test results path
+        run: ls -lah app_services_parent/shipment/test-results/
 
       - name: Run Pytest with JUnit report
         run: |
