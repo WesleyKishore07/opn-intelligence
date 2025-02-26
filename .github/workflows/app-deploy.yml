@@ -1,4 +1,4 @@
-name: Build and deploy service for opn -intelligence
+name: Build and deploy service for opn-intelligence
 on:
   pull_request:
     branches:
@@ -48,10 +48,12 @@ jobs:
       - name: Set deploy environment
         id: set-deploy-env
         run: |
-          if [ -n "${{ github.event_name }}" ="workflow_dispatch" ]; then
-            echo "DEPLOY_ENV=${{ github.event.inputs.environment}}" >> $GITHUB_ENV
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "DEPLOY_ENV=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
+            echo "DEPLOY_ENV=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
           else
             echo "DEPLOY_ENV=main" >> $GITHUB_ENV
+            echo "DEPLOY_ENV=main" >> $GITHUB_OUTPUT
           fi
           
       - name: Prod Deployment Check
@@ -66,7 +68,6 @@ jobs:
             echo "✅ Authorised to do the deployment in the production - ${{ github.actor }}"
           fi
 
-        #Setting up the python environment
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
@@ -76,7 +77,7 @@ jobs:
       - name: Install python cache packages 
         uses: actions/cache@v4
         with:
-          path: ~/.cache/pip #Cache the pip packages
+          path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
@@ -96,24 +97,20 @@ jobs:
           ls -l /home/runner/work/opn-intelligence/opn-intelligence || echo "Directory not found"
           ls -l /home/runner/work/opn-intelligence/opn-intelligence/app_services_parent || echo "app_services_parent directory not found"
 
-
       - name: List available tasks
         working-directory: .
         run: pytest --collect-only
 
-        #It will basically generates a xml and a html report by executing all the test cases   using pytest
       - name: Run tests and generate coverage
         working-directory: .
         run: |
           pytest --cov=app_services_parent --cov-report=xml --cov-report=html --junitxml=test-results/junit-report.xml
 
-      #it is used to show the coverage summary
       - name: Generating the coverage report
         working-directory: .
         run: |
           coverage report -m     
           coverage xml -o coverage.xml 
-      # ^ generates a coverage report in xml format & specifies the op names as "coverage"
 
       - name: publish the test reports
         uses: EnricoMi/publish-unit-test-result-action@v2
@@ -129,8 +126,6 @@ jobs:
       - name: Run Pytest with JUnit report
         run: |
           pytest --junitxml=app_services_parent/${{ github.event.inputs.service }}/test-results/results.xml
-        #"pytest" runs the test suite
-        #junitxml generates a Junit compatible xml test report and result will be stored in the given location
 
       - name: Generate the Summary report
         id: report
@@ -302,140 +297,181 @@ jobs:
 
             #Process each module
             while IFS= read -r module_path; do
+          #!/bin/bash
+          
+          TARGET_DIR="$GITHUB_WORKSPACE/app_services_parent"
+          
+          # Debugging: Check if the target directory exists
+          echo "🔍 Checking workspace structure..."
+          ls -l "$GITHUB_WORKSPACE"
+          
+          if [ ! -d "$TARGET_DIR" ]; then
+              echo "❌ Error: Directory $TARGET_DIR not found!"
+              exit 1  # Stop execution if the directory is missing
+          fi
+          
+          echo "# Pull Request Quality Check Summary" > report.md
+          echo "Build: #${GITHUB_RUN_NUMBER} - ${GITHUB_SHA::7}" >> report.md
+          echo "" >> report.md
+          
+          # Printing the table header
+          echo "| Module | Tests | Coverage | Quality Issues | Status | Reports |" >> report.md
+          echo "|--------|-------|----------|----------------|--------|---------|" >> report.md
+          
+          # Initialize variables
+          total_all_tests=0
+          total_all_passed=0
+          total_overall_coverage=0
+          module_count=0
+          
+          # Debugging: Verify base directory structure
+          echo "🔍 Searching for modules inside $TARGET_DIR..."
+          find "$TARGET_DIR" -type d -name "reports" -exec dirname {} \; | sort -u
+          
+          # Process each module
+          while IFS= read -r module_path; do
               if [ -d "$module_path" ]; then
-                module_name=$(basename "$(dirname "$module_path")")
-                
-              #Create report artifact links
-              artifacts_base="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-              test_link="$artifacts_base"
-              coverage_link="$artifacts_base"
-              qualtiy_link="$artifacts_base"
-
-              #Test Results
-              test_results=0
-              test_failures=0
-              test_passed=0
-
-              while IFS=read -r test_file; do
-                if [ -f "$test_file" ]; then
-                  tests=$(grep -oP 'tests="[^"]+' "$test_file" | awk -F'"' '{print $2}' || echo "0")
-                  failures=$(grep -oP 'failures="[^"]+' "$test_file" | awk -F'"' '{print $2}' || echo "0")
-                  errors=$(grep -oP 'errors="[^"]+' "$test_file" | awk -F'"' '{print $2}' || echo "0")
-
-
-                  test_results=$((test_results + ${tests:-0}))
-                  test_failures=$((test_failures + ${failures:-0} + ${errors:-0}))
-                fi              
-              done < <(find "$(dirname "$module_path")" -name "TEST_*.xml" 2>/main/null)
-
-              test_passed=$((test_results - test_failures))
-
-              #Coverage
-              coverage=0
-              coverage_file=$(find "$(dirname "$module_path")" -name "coverage.xml" 2>main/null)
-              if [ -f "$coverage_file" ]; then
-                coverage=$(grep -oP '(?<=Line-rate=")[^"]+' "$coverage_file" | awk '{print $1*100}' | head -1)
-                coverage=${coverage:-0}
+                  module_name=$(basename "$(dirname "$module_path")")
+          
+                  # Create report artifact links
+                  artifacts_base="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          
+                  # Test Results
+                  test_results=0
+                  test_failures=0
+                  test_passed=0
+          
+                  echo "🔍 Checking for test reports in $(dirname "$module_path")"
+                  find "$(dirname "$module_path")" -name "TEST_*.xml" -print
+          
+                  while IFS= read -r test_file; do
+                      if [ -f "$test_file" ]; then
+                          tests=$(grep -oP 'tests="[^"]+' "$test_file" | awk -F'"' '{print $2}' || echo "0")
+                          failures=$(grep -oP 'failures="[^"]+' "$test_file" | awk -F'"' '{print $2}' || echo "0")
+                          errors=$(grep -oP 'errors="[^"]+' "$test_file" | awk -F'"' '{print $2}' || echo "0")
+          
+                          test_results=$((test_results + ${tests:-0}))
+                          test_failures=$((test_failures + ${failures:-0} + ${errors:-0}))
+                      fi
+                  done < <(find "$(dirname "$module_path")" -name "TEST_*.xml" 2>/dev/null)
+          
+                  test_passed=$((test_results - test_failures))
+          
+                  # Coverage
+                  coverage=0
+                  coverage_file=$(find "$(dirname "$module_path")" -name "coverage.xml" 2>/dev/null | head -1)
+          
+                  if [ -f "$coverage_file" ]; then
+                      coverage=$(grep -oP '(?<=Line-rate=")[^"]+' "$coverage_file" | awk '{print $1*100}' | head -1)
+                      coverage=${coverage:-0}
+                  else
+                      echo "⚠️ Warning: No coverage.xml found for $module_name"
+                  fi
+          
+                  # Quality Reports
+                  flake8_file="$(dirname "$module_path")/flake8_report.txt"
+                  pylint_file="$(dirname "$module_path")/pylint_report.txt"
+                  bandit_file="$(dirname "$module_path")/bandit_report.txt"
+          
+                  flake8_count=0
+                  pylint_count=0
+                  bandit_count=0
+                  declare -a quality_issues=()
+          
+                  if [ -f "$flake8_file" ]; then
+                      flake8_count=$(wc -l < "$flake8_file" || echo 0)
+                      while IFS= read -r line; do
+                          quality_issues+=("Flake8: $line")
+                      done < "$flake8_file"
+                  fi
+          
+                  if [ -f "$pylint_file" ]; then
+                      pylint_count=$(grep -c "^[EWCR]" "$pylint_file" || echo "0")
+                      while IFS= read -r line; do
+                          quality_issues+=("Pylint: $line")
+                      done < <(grep "^[EWCR]" "$pylint_file" | head -5)
+                  fi
+          
+                  if [ -f "$bandit_file" ]; then
+                      bandit_count=$(grep -c "Issue:" "$bandit_file" || echo "0")
+                      while IFS= read -r line; do
+                          quality_issues+=("Bandit: $line")
+                      done < <(grep "Issue:" "$bandit_file" | head -5)
+                  fi
+          
+                  # Ensure variables are always numeric
+                  flake8_count=${flake8_count:-0}
+                  pylint_count=${pylint_count:-0}
+                  bandit_count=${bandit_count:-0}
+          
+                  # Determine status
+                  test_status="✅"
+                  [ "$test_failures" -gt 0 ] && test_status="❌"
+                  [ "$test_results" -eq 0 ] && test_status="❌"
+          
+                  coverage_status="✅"
+                  [ "$coverage" -lt 80 ] && coverage_status="❌"
+          
+                  quality_status="✅"
+                  [ "$((flake8_count + pylint_count + bandit_count))" -gt 0 ] && quality_status="❌"
+          
+                  overall_status="✅"
+                  [[ "$test_status" == "❌" || "$coverage_status" == "❌" || "$quality_status" == "❌" ]] && overall_status="❌"
+          
+                  # Print module report
+                  echo "| $module_name | $test_passed/$test_results $test_status | ${coverage}% $coverage_status | Flake8:$flake8_count, Pylint:$pylint_count, Bandit:$bandit_count $quality_status | $overall_status | [Reports]($artifacts_base) |" >> report.md
+          
+                  # Adding issue summary
+                  if [ ${#quality_issues[@]} -gt 0 ]; then
+                      echo "" >> report.md
+                      echo "### Quality Issues Summary" >> report.md
+                      echo "| Issue |" >> report.md
+                      echo "|-------|" >> report.md
+                      for issue in "${quality_issues[@]}"; do
+                          echo "| $issue |" >> report.md
+                      done
+                      echo "" >> report.md
+                  fi
+          
+                  total_all_tests=$((total_all_tests + test_results))
+                  total_all_passed=$((total_all_passed + test_passed))
+                  total_overall_coverage=$((total_overall_coverage + coverage))
+                  module_count=$((module_count + 1))
               fi
+          done < <(find "$TARGET_DIR" -type d -name "reports" -exec dirname {} \; | sort -u)
+          
+          # Overall Metrics
+          avg_coverage=$((module_count > 0 ? total_overall_coverage / module_count : 0))
+          overall_pass_rate=$((total_all_tests > 0 ? total_all_passed * 100 / total_all_tests : 100))
+          total_quality_issues=$((flake8_count + pylint_count + bandit_count))
+          
+          echo "- Total Tests: $total_all_passed/$total_all_tests (${overall_pass_rate}%)" >> report.md
+          echo "- Average Coverage: ${avg_coverage}%" >> report.md
+          echo "- Total Quality Issues: Flake8:$flake8_count, Pylint:$pylint_count, Bandit:$bandit_count" >> report.md
+          echo "" >> report.md
+          
+          # Quick Actions
+          echo "## Quick Actions Required" >> report.md
+          [ "$overall_pass_rate" -lt 100 ] && echo "- [ ] Fix failing tests ([View Reports]($artifacts_base))" >> report.md
+          [ "$avg_coverage" -lt 80 ] && echo "- [ ] Improve code coverage ([View Reports]($artifacts_base))" >> report.md
+          [ "$total_quality_issues" -gt 0 ] && echo "- [ ] Address code quality issues ([View Reports]($artifacts_base))" >> report.md
+          
+          echo "- Build Time: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> report.md
+          echo "- Pipeline Link: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" >> report.md
 
-              flake8_file="$(dirname "$module_path")/flake8_report.txt" #Syntax and styles issues
-              pylint_file="$(dirname "$module_path")/pylint_report.txt" #for code quality, including logical errors (E, W, C, R)
-              bandit_file="$(dirname "$module_path")/bandit_report.txt" #for security vulnerabilities
-
-              flake8_count=0
-              pylint_count=0
-              bandit_count=0
-              declare -a quality_issues=()
-
-              if [ -f "$flake8_file" ]; then
-                flake8_count=$(wc -l < "$flake8_file" || echo 0)
-                while IFS= read -r line; do
-                  quality_issues+=("Flake8: $line")
-                done < "$flake8_file"
-              fi
-
-              if [ -f "$pylint_file" ]; then
-                pylint_count=$(grep -c "^[EWCR]" "$pylint_file" || echo "0")
-                while IFS= read -r line; do
-                  quality_issues+=("Pylint: $line")
-                done < <(grep "^[EWCR]" "$pylint_file" | head -5) # E- Error, W- Warning, C- Convention, R- Refactor, looks for line that starts with E or W or C or R
-              fi
-
-              if [ -f "$bandit_file" ]; then
-                bandit_count=$(grep -c "Issue:" "$bandit_file" || echo "0")
-                while IFS= read -r line; do
-                  quality_issues+=("Bandit: $line")
-                done < <(grep "Issue:" "$bandit_file" | head -5)
-              fi
-
-
-              #Calculation status
-              test_status="✅"
-              [ $test_failures -gt 0 ] && test_status="❌"
-              [ $test_results -eq 0 ] && test_status="❌"
-
-              coverage_status="✅"
-              [ $coverage -lt 80 ] && coverage_status="❌"
-
-              quality_status="✅"
-              [ "$((flake8_count + pylint_count + bandit_count))" -gt 0 ] && quality_status="❌"
-
-              overall_status="✅"
-              [[ "$test_status" == "❌" || "$coverage_status" == "❌" || "$quality_status" == "❌" ]] && overall_status="❌"
-
-              echo "| $module_name | $test_passed/$test_results $test_status | ${coverage}% $coverage_status | Flake8:$flake8_count, Pylint:$pylint_count, Bandit:$bandit_count $quality_status | $overall_status | [Reports]($artifacts_base) |"
-
-              #Adding issue summary
-              if [ ${#quality_issues[@]} -gt 0 ]; then
-                echo ""
-                echo "Quality Issues Summary"
-                echo "| Issue |"
-                echo "|-------|"
-                for issue in "${quality_issues[@]}"; do
-                  echo "| $issue |"
-                done
-                echo "</details>"
-                echo ""
-              fi
-
-              total_all_tests=$((total_all_tests + test_results))
-              total_all_passed=$((total_all_passed + test_passed))
-              total_overall_coverage=$((total_overall_coverage + coverage))
-              module_count=$((module_count + 1))
-            fi
-            done < <(find ./opn-intelligence/app_services_parent -type d -name "reports" -exec dirname {} \; | sort -u )
-
-          #Calculating overall metrics
-          [ "$module_count" -gt 0 ] && avg_coverage=$((total_overall_coverage / module_count))
-          [ "$total_all_tests" -gt 0 ] && overall_pass_rate=$((total_all_passed * 100 / total_all_tests))
-          total_quality_issues=$((total_flake8 + total_pylint + total_bandit))
-
-          echo "- Total Tests: $total_all_passed/$total_all_tests (${overall_pass_rate}%)"
-          echo "- Average Coverage: ${avg_coverage}%"
-          echo "- Total Quality Issues: Flake8:$total_flake8, Pylint:$total_pylint, Bandit:$total_bandit"
-          echo ""
-
-          echo "## Quick Actions Required"
-          echo ""
-
-          # Add quick actions with direct artifact links
-          [ "$overall_pass_rate" -lt 100 ] && echo "- [ ] Fix failing tests ([View Reports]($artifacts_base))"
-          [ "$avg_coverage" -lt 80 ] && echo "- [ ] Improve code coverage ([View Reports]($artifacts_base))"
-          [ "$total_quality_issues" -gt 0 ] && echo "- [ ] Address code quality issues ([View Reports]($artifacts_base))"
-
-          echo ""
-          echo "## Build Information"
-          echo "- Build Time: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-          echo "- Pipeline Link: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          echo ""
-          echo "To merge this PR, all checks must pass their thresholds."
-
-          } > report.md
-
-          # Save report content for PR comment
-          echo "report_content<<EOF" >> $GITHUB_OUTPUT
-          cat report.md >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+      - name: Save report content for PR comment
+        run: |
+          if [ -f "report.md" ]; then
+            {
+              echo "report_content<<EOF"
+              cat report.md
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "❌ Error: report.md not found!" >&2
+            exit 1
+          fi
+        shell: bash
 
       - name: Prepare and Upload Reports
         if: always()
@@ -446,7 +482,7 @@ jobs:
           mkdir -p "$UPLOAD_DIR"
 
           # Ensure parent directory exists before proceeding
-          PARENT_DIR="./opn-intelligence/app_services_parent"
+          PARENT_DIR="./app_services_parent"
 
           if [ ! -d "$PARENT_DIR" ]; then
               echo "Error: Directory $PARENT_DIR not found!"
@@ -643,62 +679,51 @@ jobs:
             echo "DEPLOY_ENV=main" >> $GITHUB_ENV
           fi
 
-          - name: Upload Quality Reports
-          if: always()
-          uses: actions/upload-artifact@v4
-          with:
-            name: quality-reports
-            path: reports/
-            if-no-files-found: warn
-            compression-level: 6
-            overwrite: true
+      - name: Upload Summary Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: summary
+          path: reports/summary.md  
 
-          - name: Upload Summary Report
-          if: always()
-          uses: actions/upload-artifact@v4
-          with:
-            name: summary
-            path: reports/summary.md  
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const reportPath = 'reports/summary.md';
+            let report = '';
 
-          - name: Comment on PR
-          if: github.event_name == 'pull_request'
-          uses: actions/github-script@v6
-          with:
-            github-token: ${{ secrets.GITHUB_TOKEN }}
-            script: |
-              const fs = require('fs');
-              const reportPath = 'reports/summary.md';
-              let report = '';
+            if (fs.existsSync(reportPath)) {
+              report = fs.readFileSync(reportPath, 'utf8');
+            } else {
+              report = 'No summary report available.';
+            }
 
-              if (fs.existsSync(reportPath)) {
-                report = fs.readFileSync(reportPath, 'utf8');
-              } else {
-                report = 'No summary report available.';
-              }
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: report
+            });
 
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.payload.pull_request.number,
-                body: report
-              });
-
-              opn-apps-service-container:
-              name: Deploy to opn ${{ github.event.inputs.service }} App ${{ github.event.inputs.environment || 'main' }}
-              runs-on: ubuntu-latest
-              if: github.event_name == 'push'
-
-              steps:
-                - name: Set deployment environment
-                  id: set-env
-                  run: |
-                    if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-                      echo "PARENT_MODULE=${{ github.event.inputs.parent_module }}" >> $GITHUB_ENV
-                      echo "SERVICE=${{ github.event.inputs.service }}" >> $GITHUB_ENV
-                      echo "DEPLOY_ENV=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
-                    else
-                      echo "DEPLOY_ENV=main" >> $GITHUB_ENV
-                    fi
+  opn-apps-service-container:
+    name: Deploy to opn ${{ github.event.inputs.service }} App ${{ github.event.inputs.environment || 'main' }}
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - name: Set deployment environment
+        id: set-env
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "PARENT_MODULE=${{ github.event.inputs.parent_module }}" >> $GITHUB_ENV
+            echo "SERVICE=${{ github.event.inputs.service }}" >> $GITHUB_ENV
+            echo "DEPLOY_ENV=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
+          else
+            echo "DEPLOY_ENV=main" >> $GITHUB_ENV
+          fi
 
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -726,12 +751,6 @@ jobs:
             
           sudo apt-get update
           sudo apt-get install -y helm
-
-      # - name: Install Python Dependencies
-      #   run: |
-      #     pip3 install --upgrade pip
-      #     pip3 install -r ./opn-core-services-parent/$PARENT_MODULE/$SERVICE/requirements.txt
-
 
       - name: Build Docker Image
         run: |
@@ -818,4 +837,5 @@ jobs:
             --kubeconfig /home/runner/.kube/config \
             --namespace opn-intelligence-${{ env.DEPLOY_ENV }} \
             --create-namespace \
+            helm/service
             helm/service
