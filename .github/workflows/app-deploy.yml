@@ -292,19 +292,19 @@ jobs:
             echo "To merge this PR, all checks must pass their thresholds."  
 
             # Save report content for PR comment  
-            - name: Save report content for PR comment
-              run: |
-                if [ -f "report.md" ]; then
-                  {
-                    echo "report_content<<EOF"
-                    cat report.md
-                    echo "EOF"
-                  } >> "$GITHUB_OUTPUT"
-                else
-                  echo "❌ Error: report.md not found!" >&2
-                  exit 1
-                fi
-              shell: bash
+      - name: Save report content for PR comment
+        run: |
+          if [ -f "report.md" ]; then
+            {
+              echo "report_content<<EOF"
+              cat report.md
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "❌ Error: report.md not found!" >&2
+            exit 1
+          fi
+          shell: bash
 
       - name: Prepare and Upload Reports
         if: always()
