@@ -156,7 +156,7 @@ jobs:
             module_count=0
 
             # Check if the base directory exists
-            if [ ! -d "./opn-intelligence/app_services_parent" ]; then
+            if [ ! -d "./app_services_parent" ]; then
                 echo "Target directory not found. Skipping module processing." >> report.md
                 exit 0  # or handle gracefully
             fi
