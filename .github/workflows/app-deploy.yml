@@ -315,7 +315,7 @@ jobs:
           mkdir -p "$UPLOAD_DIR"
 
           # Ensure parent directory exists before proceeding
-          PARENT_DIR="./opn-intelligence/app_services_parent"
+          PARENT_DIR="./app_services_parent"
 
           if [ ! -d "$PARENT_DIR" ]; then
               echo "Error: Directory $PARENT_DIR not found!"
