@@ -264,7 +264,7 @@ jobs:
                     total_overall_coverage=$((total_overall_coverage + coverage))
                     module_count=$((module_count + 1))
                 fi
-            done < <(find ./opn-intelligence/app_services_parent -type d -name "reports" -exec dirname {} \; | sort -u)
+            done < <(find ./app_services_parent -type d -name "reports" -exec dirname {} \; | sort -u)
 
             # Calculating overall metrics
             [ "$module_count" -gt 0 ] && avg_coverage=$((total_overall_coverage / module_count)) || avg_coverage=0
