@@ -291,14 +291,15 @@ jobs:
           
           echo "- Build Time: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> report.md
           echo "- Pipeline Link: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" >> report.md
-
-      - name: Save report content for PR comment
-        run: |
-          if [ -f "report.md" ]; then
-            cat report.md > "$GITHUB_OUTPUT"
+           if [ -f "report.md" ]; then
+              {
+                echo "REPORT_CONTENT<<EOF"
+                cat report.md
+                echo "EOF"
+              } >> "$GITHUB_OUTPUT"
           else
-            echo "❌ Error: report.md not found!" >&2
-            exit 1
+              echo "❌ Error: report.md not found!" >&2
+              exit 1
           fi
         shell: bash
 
