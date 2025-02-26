@@ -1,4 +1,4 @@
-name: Build and deploy service for opn -intelligence
+name: Build and deploy service for opn-intelligence
 on:
   pull_request:
     branches:
@@ -48,7 +48,7 @@ jobs:
       - name: Set deploy environment
         id: set-deploy-env
         run: |
-          if [ -n "${{ github.event_name }}" ="workflow_dispatch" ]; then
+          if [ -n "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "DEPLOY_ENV=${{ github.event.inputs.environment}}" >> $GITHUB_ENV
           else
             echo "DEPLOY_ENV=main" >> $GITHUB_ENV
@@ -141,170 +141,170 @@ jobs:
                 echo "❌ Error: Directory $TARGET_DIR not found!"
                 exit 1  # Stop execution if the directory is missing
             fi
-            echo "# Pull Request Quality Check Summary"  
-            echo "Build: #${GITHUB_RUN_NUMBER} - ${GITHUB_SHA::7}"  
-            echo ""  
+            echo "# Pull Request Quality Check Summary" >> report.md
+            echo "Build: #${GITHUB_RUN_NUMBER} - ${GITHUB_SHA::7}" >> report.md
+            echo "" >> report.md
 
-            # Printing the table Header  
-            echo "| Module | Tests | Coverage | Quality Issues | Status | Reports |"  
-            echo "|--------|-------|----------|----------------|--------|---------|"  
+            # Printing the table Header
+            echo "| Module | Tests | Coverage | Quality Issues | Status | Reports |" >> report.md
+            echo "|--------|-------|----------|----------------|--------|---------|" >> report.md
 
-            # Initialize variables  
-            total_all_tests=0  
-            total_all_passed=0  
-            total_overall_coverage=0  
-            module_count=0  
+            # Initialize variables
+            total_all_tests=0
+            total_all_passed=0
+            total_overall_coverage=0
+            module_count=0
 
-            # Check if the base directory exists  
-            if [ ! -d "./opn-intelligence/app_services_parent" ]; then  
-                echo "Target directory not found. Skipping module processing."  
-                exit 0  # or handle gracefully  
-            fi  
+            # Check if the base directory exists
+            if [ ! -d "./opn-intelligence/app_services_parent" ]; then
+                echo "Target directory not found. Skipping module processing." >> report.md
+                exit 0  # or handle gracefully
+            fi
 
-            # Process each module  
-            while IFS= read -r module_path; do  
-                if [ -d "$module_path" ]; then  
-                    module_name=$(basename "$(dirname "$module_path")")  
+            # Process each module
+            while IFS= read -r module_path; do
+                if [ -d "$module_path" ]; then
+                    module_name=$(basename "$(dirname "$module_path")")
                     
-                    # Create report artifact links  
-                    artifacts_base="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"  
-                    test_link="$artifacts_base"  
-                    coverage_link="$artifacts_base"  
-                    quality_link="$artifacts_base"  
+                    # Create report artifact links
+                    artifacts_base="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+                    test_link="$artifacts_base"
+                    coverage_link="$artifacts_base"
+                    quality_link="$artifacts_base"
 
-                    # Test Results  
-                    test_results=0  
-                    test_failures=0  
-                    test_passed=0  
+                    # Test Results
+                    test_results=0
+                    test_failures=0
+                    test_passed=0
 
-                    while IFS=read -r test_file; do  
-                        if [ -f "$test_file" ]; then  
-                            tests=$(grep -oP 'tests="[^"]+' "$test_file" | awk -F'"' '{print $2}' || echo "0")  
-                            failures=$(grep -oP 'failures="[^"]+' "$test_file" | awk -F'"' '{print $2}' || echo "0")  
-                            errors=$(grep -oP 'errors="[^"]+' "$test_file" | awk -F'"' '{print $2}' || echo "0")  
+                    while IFS= read -r test_file; do
+                        if [ -f "$test_file" ]; then
+                            tests=$(grep -oP 'tests="[^"]+' "$test_file" | awk -F'"' '{print $2}' || echo "0")
+                            failures=$(grep -oP 'failures="[^"]+' "$test_file" | awk -F'"' '{print $2}' || echo "0")
+                            errors=$(grep -oP 'errors="[^"]+' "$test_file" | awk -F'"' '{print $2}' || echo "0")
 
-                            test_results=$((test_results + ${tests:-0}))  
-                            test_failures=$((test_failures + ${failures:-0} + ${errors:-0}))  
-                        fi              
-                    done < <(find "$(dirname "$module_path")" -name "TEST_*.xml" 2>/dev/null)  
+                            test_results=$((test_results + ${tests:-0}))
+                            test_failures=$((test_failures + ${failures:-0} + ${errors:-0}))
+                        fi
+                    done < <(find "$(dirname "$module_path")" -name "TEST_*.xml" 2>/dev/null)
 
-                    test_passed=$((test_results - test_failures))  
+                    test_passed=$((test_results - test_failures))
 
-                    # Coverage  
-                    coverage=0  
-                    coverage_file=$(find "$(dirname "$module_path")" -name "coverage.xml" 2> /dev/null)  
-                    if [ -f "$coverage_file" ]; then  
-                        coverage=$(grep -oP '(?<=Line-rate=")[^"]+' "$coverage_file" | awk '{print $1*100}' | head -1)  
-                        coverage=${coverage:-0}  
-                    fi  
+                    # Coverage
+                    coverage=0
+                    coverage_file=$(find "$(dirname "$module_path")" -name "coverage.xml" 2> /dev/null)
+                    if [ -f "$coverage_file" ]; then
+                        coverage=$(grep -oP '(?<=Line-rate=")[^"]+' "$coverage_file" | awk '{print $1*100}' | head -1)
+                        coverage=${coverage:-0}
+                    fi
 
-                    # Quality Reports  
-                    flake8_file="$(dirname "$module_path")/flake8_report.txt"  
-                    pylint_file="$(dirname "$module_path")/pylint_report.txt"  
-                    bandit_file="$(dirname "$module_path")/bandit_report.txt"  
+                    # Quality Reports
+                    flake8_file="$(dirname "$module_path")/flake8_report.txt"
+                    pylint_file="$(dirname "$module_path")/pylint_report.txt"
+                    bandit_file="$(dirname "$module_path")/bandit_report.txt"
 
-                    flake8_count=0  
-                    pylint_count=0  
-                    bandit_count=0  
-                    declare -a quality_issues=()  
+                    flake8_count=0
+                    pylint_count=0
+                    bandit_count=0
+                    declare -a quality_issues=()
 
-                    if [ -f "$flake8_file" ]; then  
-                        flake8_count=$(wc -l < "$flake8_file" || echo 0)  
-                        while IFS= read -r line; do  
-                            quality_issues+=("Flake8: $line")  
-                        done < "$flake8_file"  
-                    fi  
+                    if [ -f "$flake8_file" ]; then
+                        flake8_count=$(wc -l < "$flake8_file" || echo 0)
+                        while IFS= read -r line; do
+                            quality_issues+=("Flake8: $line")
+                        done < "$flake8_file"
+                    fi
 
-                    if [ -f "$pylint_file" ]; then  
-                        pylint_count=$(grep -c "^[EWCR]" "$pylint_file" || echo "0")  
-                        while IFS= read -r line; do  
-                            quality_issues+=("Pylint: $line")  
-                        done < <(grep "^[EWCR]" "$pylint_file" | head -5)  
-                    fi  
+                    if [ -f "$pylint_file" ]; then
+                        pylint_count=$(grep -c "^[EWCR]" "$pylint_file" || echo "0")
+                        while IFS= read -r line; do
+                            quality_issues+=("Pylint: $line")
+                        done < <(grep "^[EWCR]" "$pylint_file" | head -5)
+                    fi
 
-                    if [ -f "$bandit_file" ]; then  
-                        bandit_count=$(grep -c "Issue:" "$bandit_file" || echo "0")  
-                        while IFS= read -r line; do  
-                            quality_issues+=("Bandit: $line")  
-                        done < <(grep "Issue:" "$bandit_file" | head -5)  
-                    fi  
+                    if [ -f "$bandit_file" ]; then
+                        bandit_count=$(grep -c "Issue:" "$bandit_file" || echo "0")
+                        while IFS= read -r line; do
+                            quality_issues+=("Bandit: $line")
+                        done < <(grep "Issue:" "$bandit_file" | head -5)
+                    fi
 
-                    # Calculation status  
-                    test_status="✅"  
-                    [ "$test_failures" -gt 0 ] && test_status="❌"  
-                    [ "$test_results" -eq 0 ] && test_status="❌"  
+                    # Calculation status
+                    test_status="✅"
+                    [ "$test_failures" -gt 0 ] && test_status="❌"
+                    [ "$test_results" -eq 0 ] && test_status="❌"
 
-                    coverage_status="✅"  
-                    [ "$coverage" -lt 80 ] && coverage_status="❌"  
+                    coverage_status="✅"
+                    [ "$coverage" -lt 80 ] && coverage_status="❌"
 
-                    quality_status="✅"  
-                    [ "$((flake8_count + pylint_count + bandit_count))" -gt 0 ] && quality_status="❌"  
+                    quality_status="✅"
+                    [ "$((flake8_count + pylint_count + bandit_count))" -gt 0 ] && quality_status="❌"
 
-                    overall_status="✅"  
-                    [[ "$test_status" == "❌" || "$coverage_status" == "❌" || "$quality_status" == "❌" ]] && overall_status="❌"  
+                    overall_status="✅"
+                    [[ "$test_status" == "❌" || "$coverage_status" == "❌" || "$quality_status" == "❌" ]] && overall_status="❌"
 
-                    # Print module report  
-                    echo "| $module_name | $test_passed/$test_results $test_status | ${coverage}% $coverage_status | Flake8:$flake8_count, Pylint:$pylint_count, Bandit:$bandit_count $quality_status | $overall_status | [Reports]($artifacts_base) |"  
+                    # Print module report
+                    echo "| $module_name | $test_passed/$test_results $test_status | ${coverage}% $coverage_status | Flake8:$flake8_count, Pylint:$pylint_count, Bandit:$bandit_count $quality_status | $overall_status | [Reports]($artifacts_base) |" >> report.md
 
-                    # Adding issue summary  
-                    if [ ${#quality_issues[@]} -gt 0 ]; then  
-                        echo ""  
-                        echo "Quality Issues Summary"  
-                        echo "| Issue |"  
-                        echo "|-------|"  
-                        for issue in "${quality_issues[@]}"; do  
-                            echo "| $issue |"  
-                        done  
-                        echo "</details>"  
-                        echo ""  
-                    fi  
+                    # Adding issue summary
+                    if [ ${#quality_issues[@]} -gt 0 ]; then
+                        echo "" >> report.md
+                        echo "Quality Issues Summary" >> report.md
+                        echo "| Issue |" >> report.md
+                        echo "|-------|" >> report.md
+                        for issue in "${quality_issues[@]}"; do
+                            echo "| $issue |" >> report.md
+                        done
+                        echo "</details>" >> report.md
+                        echo "" >> report.md
+                    fi
 
-                    total_all_tests=$((total_all_tests + test_results))  
-                    total_all_passed=$((total_all_passed + test_passed))  
-                    total_overall_coverage=$((total_overall_coverage + coverage))  
-                    module_count=$((module_count + 1))  
-                fi  
-            done < <(find ./opn-intelligence/app_services_parent -type d -name "reports" -exec dirname {} \; | sort -u)  
+                    total_all_tests=$((total_all_tests + test_results))
+                    total_all_passed=$((total_all_passed + test_passed))
+                    total_overall_coverage=$((total_overall_coverage + coverage))
+                    module_count=$((module_count + 1))
+                fi
+            done < <(find ./opn-intelligence/app_services_parent -type d -name "reports" -exec dirname {} \; | sort -u)
 
-            # Calculating overall metrics  
-            [ "$module_count" -gt 0 ] && avg_coverage=$((total_overall_coverage / module_count)) || avg_coverage=0  
-            [ "$total_all_tests" -gt 0 ] && overall_pass_rate=$((total_all_passed * 100 / total_all_tests)) || overall_pass_rate=100  
-            total_quality_issues=$((flake8_count + pylint_count + bandit_count))  
+            # Calculating overall metrics
+            [ "$module_count" -gt 0 ] && avg_coverage=$((total_overall_coverage / module_count)) || avg_coverage=0
+            [ "$total_all_tests" -gt 0 ] && overall_pass_rate=$((total_all_passed * 100 / total_all_tests)) || overall_pass_rate=100
+            total_quality_issues=$((flake8_count + pylint_count + bandit_count))
 
-            echo "- Total Tests: $total_all_passed/$total_all_tests (${overall_pass_rate}%)"  
-            echo "- Average Coverage: ${avg_coverage}%"  
-            echo "- Total Quality Issues: Flake8:$flake8_count, Pylint:$pylint_count, Bandit:$bandit_count"  
-            echo ""  
+            echo "- Total Tests: $total_all_passed/$total_all_tests (${overall_pass_rate}%)" >> report.md
+            echo "- Average Coverage: ${avg_coverage}%" >> report.md
+            echo "- Total Quality Issues: Flake8:$flake8_count, Pylint:$pylint_count, Bandit:$bandit_count" >> report.md
+            echo "" >> report.md
 
-            echo "## Quick Actions Required"  
-            echo ""  
+            echo "## Quick Actions Required" >> report.md
+            echo "" >> report.md
 
-            # Add quick actions with direct artifact links  
-            [ "$overall_pass_rate" -lt 100 ] && echo "- [ ] Fix failing tests ([View Reports]($artifacts_base))"  
-            [ "$avg_coverage" -lt 80 ] && echo "- [ ] Improve code coverage ([View Reports]($artifacts_base))"  
-            [ "$total_quality_issues" -gt 0 ] && echo "- [ ] Address code quality issues ([View Reports]($artifacts_base))"  
+            # Add quick actions with direct artifact links
+            [ "$overall_pass_rate" -lt 100 ] && echo "- [ ] Fix failing tests ([View Reports]($artifacts_base))" >> report.md
+            [ "$avg_coverage" -lt 80 ] && echo "- [ ] Improve code coverage ([View Reports]($artifacts_base))" >> report.md
+            [ "$total_quality_issues" -gt 0 ] && echo "- [ ] Address code quality issues ([View Reports]($artifacts_base))" >> report.md
 
-            echo ""  
-            echo "## Build Information"  
-            echo "- Build Time: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"  
-            echo "- Pipeline Link: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"  
-            echo ""  
-            echo "To merge this PR, all checks must pass their thresholds."  
+            echo "" >> report.md
+            echo "## Build Information" >> report.md
+            echo "- Build Time: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> report.md
+            echo "- Pipeline Link: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" >> report.md
+            echo "" >> report.md
+            echo "To merge this PR, all checks must pass their thresholds." >> report.md
+          }
 
-            # Save report content for PR comment  
-          - name: Save report content for PR comment
-            run: |
-              if [ -f "report.md" ]; then
-                {
-                  echo "report_content<<EOF"
-                  cat report.md
-                  echo "EOF"
-                } >> "$GITHUB_OUTPUT"
-              else
-                echo "❌ Error: report.md not found!" >&2
-                exit 1
-              fi
-              shell: bash
+      - name: Save report content for PR comment
+        run: |
+          if [ -f "report.md" ]; then
+            {
+              echo "report_content<<EOF"
+              cat report.md
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "❌ Error: report.md not found!" >&2
+            exit 1
+          fi
+        shell: bash
 
       - name: Prepare and Upload Reports
         if: always()
