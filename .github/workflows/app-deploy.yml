@@ -136,7 +136,7 @@ jobs:
         id: report
         run: |
           {
-            TARGET_DIR="$GITHUB_WORKSPACE/opn-intelligence/app_services_parent"
+            TARGET_DIR="$GITHUB_WORKSPACE/app_services_parent"
             if [ ! -d "$TARGET_DIR" ]; then
                 echo "❌ Error: Directory $TARGET_DIR not found!"
                 exit 1  # Stop execution if the directory is missing
