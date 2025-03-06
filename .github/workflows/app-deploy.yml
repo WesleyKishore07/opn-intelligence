@@ -90,12 +90,12 @@ jobs:
 
       - name: Debug file structure
         run: ls -lR
-        working-directory: /home/runner/work/opn-intelligence
+        working-directory: .
         
       - name: Debug directory structure
         run: |
-          ls -l /home/runner/work/opn-intelligence/opn-intelligence || echo "Directory not found"
-          ls -l /home/runner/work/opn-intelligence/opn-intelligence/app_services_parent || echo "app_services_parent directory not found"
+          ls -l . || echo "Directory not found"
+          ls -l ./app_services_parent || echo "app_services_parent directory not found"
 
       - name: List available tasks
         working-directory: .
@@ -121,7 +121,7 @@ jobs:
           check_name: "Test Results"
       
       - name: Debug test results path
-        run: ls -lah app_services_parent/shipment/test-results/
+        run: ls -lah ./app_services_parent/${{ github.event.inputs.service }}/test-results/ || echo "Path not found"
 
       - name: Run Pytest with JUnit report
         run: |
@@ -518,16 +518,16 @@ jobs:
           if [ "${{ github.event.inputs.environment }}" == "main" ]; then
             export PASSPHRASE=${{ secrets.DECRYPTION_PASSWORD }}
             echo "PASSPHRASE SET"
-            chmod +x ./opn-core-services-parent/$PARENT_MODULE/$SERVICE/entrypoint.sh
+            chmod +x ./app_services_parent/$SERVICE/entrypoint.sh
             echo "file executable done"
-            ./opn-core-services-parent/$PARENT_MODULE/$SERVICE/entrypoint.sh
+            ./app_services_parent/$SERVICE/entrypoint.sh
           fi
           if [ "${{ github.event.inputs.environment }}" == "prod" ]; then
             export PASSPHRASE=${{ secrets.DECRYPTION_PASSWORD_PROD }}
             echo "PASSPHRASE SET"
-            chmod +x ./opn-core-services-parent/$PARENT_MODULE/$SERVICE/entrypoint.sh
+            chmod +x ./app_services_parent/$SERVICE/entrypoint.sh
             echo "file executable done"
-            ./opn-core-services-parent/$PARENT_MODULE/$SERVICE/entrypoint.sh
+            ./app_services_parent/$SERVICE/entrypoint.sh
           fi
 
       - name: Login to Amazon ECR
