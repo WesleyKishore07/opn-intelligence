@@ -74,6 +74,7 @@ jobs:
           python-version: "3.9"
           cache: "pip"
           
+          
       - name: Install python cache packages 
         uses: actions/cache@v4
         with:
@@ -88,15 +89,15 @@ jobs:
           pip install -r requirements/requirements.txt
           pip install -r requirements/requirements-dev.txt
 
-      - name: Debug file structure
-        run: ls -lR
-        working-directory: .
+      # - name: Debug file structure
+      #   run: ls -lR
+      #   working-directory: .
         
-      - name: Debug directory structure
-        run: |
-          ls -l . || echo "Directory not found"
-          ls -l ./app_services_parent || echo "app_services_parent directory not found"
-
+      # - name: Debug directory structure
+      #   run: |
+      #     ls -l . || echo "Directory not found"
+      #     ls -l ./app_services_parent || echo "app_services_parent directory not found"
+      
       - name: List available tasks
         working-directory: .
         run: pytest --collect-only
@@ -136,7 +137,11 @@ jobs:
           
           # Debugging: Check if the target directory exists
           echo "🔍 Checking workspace structure..."
-          ls -l "$GITHUB_WORKSPACE"
+          echo $GITHUB_WORKSPACE
+          echo $GITHUB_WORKSPACE
+          echo $GITHUB_WORKSPACE
+          echo $GITHUB_WORKSPACE
+       #   ls -l "$GITHUB_WORKSPACE"
           
           if [ ! -d "$TARGET_DIR" ]; then
               echo "❌ Error: Directory $TARGET_DIR not found!"
